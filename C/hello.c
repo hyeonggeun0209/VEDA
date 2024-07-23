@@ -1,14 +1,13 @@
 #include<stdio.h>
-#include<stdlib.h>
-#include<unistd.h>
+
 
 int main() {
 
-    printf("hello world!");
+    printf("hello world!\r\n");
     
-    fflush(NULL);
-    
-    
-    _exit(0);
+    // printf("\r");
+    printf("jehe");
+
+    return 0;
     
 }
