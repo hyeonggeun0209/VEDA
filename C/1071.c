@@ -1,12 +1,13 @@
 #include <stdio.h>
 
-void find(int n, int *arr) {
+void find(int n, int m, int *arr) {
     int i;
-    int div, mul = 0;
+    int div = 0;
+    int mul = 0;
 
     for (i = 0; i < n; i++) {
-        if (n % arr[i] == 0) div += arr[i];
-        else if (arr[i] % n == 0) mul += arr[i];
+        if (m % arr[i] == 0) div += arr[i];
+        if (arr[i] % m == 0) mul += arr[i];
     }
     printf("%d\n%d", div, mul);
 }
@@ -25,7 +26,7 @@ int main() {
 
     scanf("%d",&m);
 
-    find(m, arr);
+    find(n, m, arr);
 
     return 0;
 }
