@@ -10,7 +10,7 @@ int main() {
     cin.ignore();
 
     string f, r;
-    cout << endl << "find : ";
+    cout << endl << "find : "; 
     getline(cin, f, '\n');
     cout << "replace : ";
     getline(cin, r, '\n');
