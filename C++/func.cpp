@@ -2,7 +2,7 @@
 #include <string>
 using namespace std;
 
-void star(int a = 5);
+void star(int a = 5); 
 void msg(int id, string text = "");
 
 void star(int a) {
@@ -20,6 +20,7 @@ int main() {
 
     msg(10);
     msg(10, "Hello");
+
 
     return 0;
 }
