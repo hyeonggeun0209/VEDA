@@ -22,7 +22,7 @@ int main() {
     Derived *dp;
     GrandDerived *gp;
 
-    bp = dp = gp = &g;
+    bp = dp = gp = &g; 
 
     bp->f();
     dp->f();
