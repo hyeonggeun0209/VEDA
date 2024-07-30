@@ -18,7 +18,7 @@ private:
 public:
     WordGame();
     ~WordGame();
-    void getPlayers();
+    void getPlayer();
     void start();
     string getWord() { return this->word;}
     void setWord(string str) {  this->word = str;}
@@ -26,7 +26,7 @@ public:
 };
 
 WordGame::WordGame() {
-    getPlayers();
+    getPlayer();
     start();
 }
 
@@ -35,7 +35,7 @@ WordGame::~WordGame() {
     delete [] p;
 }
 
-void WordGame::getPlayers() {
+void WordGame::getPlayer() {
     cout << "끝말 잇기 게임을 시작합니다" << endl;
     cout << "게임에 참가하는 인원은 몇명입니까? ";
 	cin >> num;
@@ -58,6 +58,7 @@ void WordGame::start() {
         cin >> s;
         if (compWord(s)) {
             setWord(s);
+            cnt++;
         } else {
             cout << "틀린 단어입니다." << endl;
             break;
@@ -73,8 +74,10 @@ bool WordGame::compWord(string s) {
 }
 
 int main() {
-    WordGame game;
+    WordGame* wg = new WordGame();
 
+    delete wg;
+    
     return 0;
 }
 
