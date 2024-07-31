@@ -170,10 +170,10 @@ public:
 };
 
 void Game::show(GameObject *h, GameObject *m, GameObject *f) {
+    board[f->getX()][f->getY()] = f->getShape();
     board[h->getX()][h->getY()] = h->getShape();
     board[m->getX()][m->getY()] = m->getShape();
-    board[f->getX()][f->getY()] = f->getShape();
-
+    
     for (int i = 0; i < 10; i++) {
         for (int j = 0; j < 20; j++) {
             cout << board[i][j];
@@ -206,6 +206,8 @@ void Game::run() {
         f->move();
 
     }
+    setBoard();
+    show(h, m, f);
     if (h->collide(m))
         cout << "Monster is Winner!!" << endl;
     if (h->collide(f))
