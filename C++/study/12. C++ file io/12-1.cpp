@@ -5,7 +5,7 @@ using namespace std;
 int main() {
     char name[10], dept[20];
     int sid;
-
+  
     // 키보드로부터 읽기
     cout << "이름 >> ";
     cin >> name;
