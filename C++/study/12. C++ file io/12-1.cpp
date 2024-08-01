@@ -6,6 +6,7 @@ int main() {
     char name[10], dept[20];
     int sid;
 
+    // 키보드로부터 읽기
     cout << "이름 >> ";
     cin >> name;
     cout << "학번(숫자로) >> ";
@@ -20,11 +21,12 @@ int main() {
         return 0;
     }
 
+    //파일 쓰기
     fout << name << endl;
     fout << sid << endl;
     fout << dept << endl;
 
-    fout.close();
+    fout.close(); // 파일 닫기
 
     return 0;
 }
