@@ -13,11 +13,11 @@ int main() {
     }
 
     int count = 0;
-    char s[32];
+    char s[32]; // 블록 단위로 읽어들일 버퍼
     while (!fin.eof()) {
-        fin.read(s, 32);
-        int n = fin.gcount();
-        cout.write(s, n);
+        fin.read(s, 32); // 최대 32바이트를 읽어 배열 s에 저장
+        int n = fin.gcount(); // 실제 읽은 바이트 수 알아냄
+        cout.write(s, n); // 버퍼에 있는 n 개의 바이트를 화면에 출력
         count += n;
     }
 
