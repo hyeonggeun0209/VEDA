@@ -5,7 +5,7 @@ void dia_zig(int n, int (*arr)[100]) {
     int i, j;
     int num = 1;
 
-    for(i = 0; i < n; i++) {
+    for(i = 0; i < n; i++) { 
         if (i % 2 == 1) {
             for (j = 0; j <= i; j++) {
                 arr[i-j][j] = num++;

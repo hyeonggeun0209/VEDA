@@ -9,7 +9,7 @@ int main() {
 
     if (n > 100 || m < 1 || m > 3) {
         printf("INPUT ERROR!");
-    } else if(m == 1) {
+    } else if(m == 1) { 
         for (i = 1; i < n+1; i++) {
             for (j = 0; j < i; j++) {
                 printf("*");
