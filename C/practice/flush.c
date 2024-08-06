@@ -4,6 +4,7 @@
 
 int main() {
 
+    // scanf("%*c%c");
     printf("hello world!");
     
     fflush(NULL);
