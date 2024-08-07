@@ -10,5 +10,11 @@ class Widget : public QWidget
 public:
     Widget(QWidget *parent = nullptr);
     ~Widget();
+
+signals:
+    void clicked();
+
+public slots:
+    void slotQuit();
 };
 #endif // WIDGET_H
