@@ -6,6 +6,7 @@
 
 class QLabel;
 class QPushButton;
+class QButtonGroup;
 
 class Widget : public QWidget
 {
@@ -13,9 +14,9 @@ class Widget : public QWidget
 
 private:
     QLabel *label;
-    QVector<QPushButton*> buttons;
     QString op1;
     double num1;
+    QButtonGroup *buttonGroup;
 public:
     Widget(QWidget *parent = nullptr);
     ~Widget();
@@ -24,9 +25,6 @@ signals:
     void clicked();
 
 public slots:
-    void setnum();
-    void op();
-    void cal();
-    void clear();
+    void click(int id);
 };
 #endif // WIDGET_H

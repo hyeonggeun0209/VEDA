@@ -2,6 +2,9 @@
 #include <QPushButton>
 #include <QApplication>
 #include <QString>
+#include <QVBoxLayout>
+#include <QButtonGroup>
+#include <QGridLayout>
 #include "widget.h"
 #include "calculator.h"
 #define WIDTH 4
@@ -17,65 +20,62 @@ Widget::Widget(QWidget *parent)
     };
 
     label =  new QLabel("0", this);
-    label->setGeometry(10, 5, 230, 40);
+    // label->setGeometry(10, 5, 230, 40);
     label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    // QPushButton *buttons[16];
-    for(int y = 0; y < WIDTH; y++) {
-        for(int x = 0; x < WIDTH; x++) {
-            buttons.append(new QPushButton(ButtonChar[x+y*WIDTH], this));
-            buttons.at(x+y*WIDTH)->setGeometry(5+60*x, 50+60*y, 55, 55);
+    label->setFrameShape(QFrame::Box);
+    label->setMaximumHeight(30);
+
+    buttonGroup = new QButtonGroup();
+    QGridLayout *gridLayout = new QGridLayout();
+    for(int y = 0; y < WIDTH; ++y) {
+        for(int x = 0; x < WIDTH; ++x) {
+            int n = x + y * WIDTH;
+            buttonGroup->addButton(new QPushButton(ButtonChar[n], this),n);
+            gridLayout->addWidget(buttonGroup->button(n), n/WIDTH, n%WIDTH);
         }
     }
 
-    connect(buttons[0], SIGNAL(clicked()), this, SLOT(setnum()));
-    connect(buttons[1], SIGNAL(clicked()), this, SLOT(setnum()));
-    connect(buttons[2], SIGNAL(clicked()), this, SLOT(setnum()));
-    connect(buttons[4], SIGNAL(clicked()), this, SLOT(setnum()));
-    connect(buttons[5], SIGNAL(clicked()), this, SLOT(setnum()));
-    connect(buttons[6], SIGNAL(clicked()), this, SLOT(setnum()));
-    connect(buttons[8], SIGNAL(clicked()), this, SLOT(setnum()));
-    connect(buttons[9], SIGNAL(clicked()), this, SLOT(setnum()));
-    connect(buttons[10], SIGNAL(clicked()), this, SLOT(setnum()));
-    connect(buttons[12], SIGNAL(clicked()), this, SLOT(setnum()));
+    setWindowTitle("Calculator");
 
-    connect(buttons[3], SIGNAL(clicked()), this, SLOT(op()));
-    connect(buttons[7], SIGNAL(clicked()), this, SLOT(op()));
-    connect(buttons[11], SIGNAL(clicked()), this, SLOT(op()));
-    connect(buttons[15], SIGNAL(clicked()), this, SLOT(op()));
+    QVBoxLayout *vBoxLayout = new QVBoxLayout();
+    vBoxLayout->setContentsMargins(6, 6, 6, 6);
+    vBoxLayout->addWidget(label);
+    vBoxLayout->addLayout(gridLayout);
+    setLayout(vBoxLayout);
 
-    connect(buttons[14], SIGNAL(clicked()), this, SLOT(cal()));
-    connect(buttons[13], SIGNAL(clicked()), this, SLOT(clear()));
-
+    connect(buttonGroup,SIGNAL(idClicked(int)),SLOT(click(int)));
 }
 
-void Widget::setnum() {
+void Widget::click(int id) {
 
-    QPushButton *button = (QPushButton*)(sender());
-    if(label->text().toInt() == 0)
-        label->setText(button->text());
-    else
-        label->setText(label->text()+button->text());
-
-
-}
-
-void Widget::op() {
-    QPushButton *button = (QPushButton*)(sender());
-    num1 = label->text().toDouble();
-    op1 = button->text();
-    label->setText("0");
-}
-
-void Widget::cal() {
-    Calculator c(num1, op1[0].toLatin1(), label->text().toDouble());
-    label->setText(QString::number(c.doCalculate()));
-}
-
-void Widget::clear() {
-    label->setText("0");
+    switch(id) {
+    case 3:
+    case 7:
+    case 11:
+    case 15: {
+        num1 = label->text().toDouble();
+        op1 = buttonGroup->button(id)->text();
+        label->setText("0");
+        break;
+    }
+    case 14: {
+        Calculator c(num1, op1[0].toLatin1(), label->text().toDouble());
+        label->setText(QString::number(c.doCalculate()));
+        break;
+    }
+    case 13: {
+        label->setText("0");
+        break;
+    }
+    default: {
+        if(label->text().toInt() == 0)
+            label->setText(buttonGroup->button(id)->text());
+        else
+            label->setText(label->text()+buttonGroup->button(id)->text());
+        }
+        break;
+    }
 }
 
 Widget::~Widget() {
-    delete label;
-    buttons.clear();
 }
