@@ -6,7 +6,7 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
 
-    QComboBox *comboBox = new QComboBox();
+    QComboBox *comboBox = new QComboBox()
     comboBox->addItem("KDE");
     comboBox->addItem("Gnome");
     comboBox->addItem("FVWM");
