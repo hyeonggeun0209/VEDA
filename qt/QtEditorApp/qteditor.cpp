@@ -17,6 +17,8 @@
 #include <QFileDialog>
 #include <QDebug>
 #include <QFontDialog>
+#include <QPrinter>
+#include <QPrintDialog>
 
 
 QtEditor::QtEditor(QWidget *parent)
@@ -25,15 +27,8 @@ QtEditor::QtEditor(QWidget *parent)
     //QMdiArea widget
     mdiArea = new QMdiArea(this);
     setCentralWidget(mdiArea);
-#if 0
-    QTextEdit *textedit = new QTextEdit(this);
-    mdiArea->addSubWindow(textedit);
-#else
-    QTextEdit *textedit = newFile();
-#endif
 
     // QTextEdit *textedit = new QTextEdit(this);
-    // setCentralWidget(textedit);
 
     //QMenubar class
     QMenuBar *menubar = new QMenuBar(this);
@@ -57,6 +52,7 @@ QtEditor::QtEditor(QWidget *parent)
     QAction *aboutQtAct = makeAction(":/images/qt.png", tr("&AboutQt"), tr(""), tr("AboutQt"), qApp, SLOT(aboutQt()));
     QAction *colorAct = makeAction(":/images/color.png", tr("&Color"), tr(""), tr("Color"), this, SLOT(setColor()));
     QAction *fontAct = makeAction(":/images/font.png", tr("&Font"), tr(""), tr("Font"), this, SLOT(setFont()));
+    QAction *printAct = makeAction(":/images/print.png", tr("&Print"), tr(""), tr("Print"), this, SLOT(print()));
 
 
     //QMenu class
@@ -68,6 +64,7 @@ QtEditor::QtEditor(QWidget *parent)
     fileMenu->addAction(openAct);
     fileMenu->addAction(saveAct);
     fileMenu->addAction(saveAsAct);
+    fileMenu->addAction(printAct);
 
     editMenu->addAction(undoAct);
     editMenu->addAction(redoAct);
@@ -96,18 +93,14 @@ QtEditor::QtEditor(QWidget *parent)
     formatMenu->addMenu(alignMenu);
     formatMenu->addAction(fontAct);
     formatMenu->addAction(colorAct);
-    QAction *alignLeftAct = new QAction(QIcon(":/images/left.png"), "Left", this);
-    QAction *alignCenterAct = new QAction(QIcon(":/images/center.png"), "Center", this);
-    QAction *alignRightAct = new QAction(QIcon(":/images/right.png"), "Right", this);
-    QAction *alignJustifyAct = new QAction(QIcon(":/images/justify.png"), "Justify", this);
-    alignMenu->addAction(alignLeftAct);
-    alignMenu->addAction(alignCenterAct);
-    alignMenu->addAction(alignRightAct);
-    alignMenu->addAction(alignJustifyAct);
-    connect(alignLeftAct, SIGNAL(triggered()), this, SLOT(alignLeft()));
-    connect(alignCenterAct, SIGNAL(triggered()), this, SLOT(alignCenter()));
-    connect(alignRightAct, SIGNAL(triggered()), this, SLOT(alignRight()));
-    connect(alignJustifyAct, SIGNAL(triggered()), this, SLOT(alignJustify()));
+    QAction *leftAct = makeAction(":/images/left.png", tr("&Left"), "Ctrl+1", tr("Align left"), this, SLOT(alignLeft()));
+    QAction *centerAct = makeAction(":/images/center.png", tr("&Center"), "Ctrl+2", tr("Align center"), this, SLOT(alignCenter()));
+    QAction *rightAct = makeAction(":/images/right.png", tr("&Right"), "Ctrl+3", tr("Align right"), this, SLOT(alignRight()));
+    QAction *justifyAct = makeAction(":/images/justify.png", tr("&Justify"), "Ctrl+4", tr("Align justify"), this, SLOT(alignJustify()));
+    alignMenu->addAction(leftAct);
+    alignMenu->addAction(centerAct);
+    alignMenu->addAction(rightAct);
+    alignMenu->addAction(justifyAct);
 
 
     //QToolBar class
@@ -118,6 +111,8 @@ QtEditor::QtEditor(QWidget *parent)
     fileToolBar->addAction(saveAct);
     fileToolBar->addAction(saveAsAct);
 
+    fileToolBar->addSeparator();
+    fileToolBar->addAction(printAct);
 
     fileToolBar->addSeparator();
     fileToolBar->addAction(quitAct);
@@ -126,20 +121,37 @@ QtEditor::QtEditor(QWidget *parent)
 
     fileToolBar->addSeparator();
     fileToolBar->addAction(copyAct);
+    fileToolBar->addAction(cutAct);
     fileToolBar->addAction(pasteAct);
 
     fileToolBar->addSeparator();
     fileToolBar->addAction(zoomInAct);
     fileToolBar->addAction(zoomOutAct);
 
-    QMenu *windowMenu = menubar->addMenu("&Window");
+    QAction *tileAct = makeAction(":/images/tile.png", tr("&Tile"), "Ctrl+Shift+T", \
+                                  tr("tile"), mdiArea, SLOT(tileSubWindows( )));
+    QAction *cascateAct = makeAction(":/images/cascade.png", tr("&Cascade"), "Ctrl+Shift+C", \
+                                     tr("cascade"), mdiArea, SLOT(cascadeSubWindows( )));
+    QAction *previousAct = makeAction(":/images/previous.png", tr("&Previous"), QKeySequence::PreviousChild, \
+                                      tr("previous"), mdiArea, SLOT(activatePreviousSubWindow( )));
+    QAction *nextAct = makeAction(":/images/next.png", tr("&Next"), QKeySequence::NextChild, \
+                                  tr("next"), mdiArea, SLOT(activateNextSubWindow( )));
+
+    windowMenu = menubar->addMenu("&Window");
+    windowMenu->addAction(tileAct);
+    windowMenu->addAction(cascateAct);
+    windowMenu->addSeparator( );
+    windowMenu->addAction(previousAct);
+    windowMenu->addAction(nextAct);
+
+
     QMenu *toolbarMenu = windowMenu->addMenu("&Toolbar");
     toolbarMenu->addAction(fileToolBar->toggleViewAction());
 
-    QFontComboBox *fontComboBox = new QFontComboBox(this);
-    connect(fontComboBox, SIGNAL(currentFontChanged(QFont)), textedit, SLOT(setCurrentFont(QFont)));
-    QDoubleSpinBox *sizeSpinBox = new QDoubleSpinBox(this);
-    connect(sizeSpinBox, SIGNAL(valueChanged(double)), textedit, SLOT(setFontPointSize(qreal)));
+    fontComboBox = new QFontComboBox(this);
+    connect(fontComboBox, SIGNAL(currentFontChanged(QFont)), SLOT(setTextFont(QFont)));
+    sizeSpinBox = new QDoubleSpinBox(this);
+    connect(sizeSpinBox, SIGNAL(valueChanged(double)), SLOT(setTextSize(qreal)));
     addToolBarBreak(); // 다음 툴바는 아랫줄로 위치
 
 
@@ -149,32 +161,34 @@ QtEditor::QtEditor(QWidget *parent)
     formatToolbar->addWidget(fontComboBox);
     formatToolbar->addWidget(sizeSpinBox);
     formatToolbar->addSeparator();
-    formatToolbar->addAction(alignLeftAct);
-    formatToolbar->addAction(alignCenterAct);
-    formatToolbar->addAction(alignRightAct);
-    formatToolbar->addAction(alignJustifyAct);
+    formatToolbar->addAction(leftAct);
+    formatToolbar->addAction(centerAct);
+    formatToolbar->addAction(rightAct);
+    formatToolbar->addAction(justifyAct);
 
-
+    formatToolbar->addSeparator( );
+    formatToolbar->addAction(tileAct);
+    formatToolbar->addAction(cascateAct);
+    formatToolbar->addSeparator( );
+    formatToolbar->addAction(previousAct);
+    formatToolbar->addAction(nextAct);
 
 
     //QDockWidget class
     QWidget *w = new QWidget(this);
     QLabel *label = new QLabel("Dock Widget", w);
-    label->resize(100, 500);
-    QDockWidget *dock = new QDockWidget("Dock Widget", label);
+    QDockWidget *dock = new QDockWidget("Dock Widget", this);
     dock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-
-
-    // QDockWidget 크기 설정
-    dock->setMinimumSize(150, 150); // 최소 크기 설정
-
     addDockWidget(Qt::RightDockWidgetArea, dock);
     dock->setWidget(w);
-
-    // QTextEdit *text = new QTextEdit(w);
-    // text->resize(150, 150);
     toolbarMenu->addAction(dock->toggleViewAction());
 
+#if 0
+    QTextEdit *textedit = new QTextEdit(this);
+    mdiArea->addSubWindow(textedit);
+#else
+    QTextEdit *textedit = newFile();
+#endif
 
 }
 
@@ -208,38 +222,114 @@ QAction *QtEditor::makeAction(QString icon, QString text, T shortCut, QString to
 
 QTextEdit *QtEditor::newFile() {
     qDebug("Make New File");
+    QAction *newFileAct = makeAction(":/images/file.png",
+                            tr("&New File"), tr(""), tr("New File"), this, SLOT(selectWindow()));
+    windowMenu->addAction(newFileAct);
+
     QTextEdit *textedit = new QTextEdit;
+    connect(textedit, SIGNAL(cursorPositionChanged()), SLOT(setFontWidget()));
+    // connect(newFileAct, SIGNAL(triggered()), textedit, SLOT(setFocus()));
+    connect(textedit, SIGNAL(destroyed(QObject*)), textedit, SLOT(deleteLater()));
+    connect(textedit, SIGNAL(destroyed(QObject*)), newFileAct, SLOT(deleteLater()));
     mdiArea->addSubWindow(textedit);
-    textedit->show();
-    // mdiArea->tileSubWindows();
-    // mdiArea->cascadeSubWindows();
+    textedit->show( );
+
+    windowHash[newFileAct] = textedit;
     return textedit;
+
+}
+
+void QtEditor::selectWindow() {
+    QTextEdit *textedit = (QTextEdit*)windowHash[(QAction*)sender()];
+    textedit->setFocus();
 }
 
 void QtEditor::openFile() {
-    QString fileName = QFileDialog::getOpenFileName(this,
-                    tr("Select file to open"), QDir::home().dirName(),"Text File(*.txt *.html *.c *.cpp *.h)");
-    qDebug() << fileName;
+    qDebug("Open a file");
+    QString filename = QFileDialog::getOpenFileName(this,
+                        tr("Select file to open"), ".","Text File(*.txt *.html *.c *.cpp *.h)");
 
+    if(!filename.length()) return;
 
+    QFileInfo fileInfo(filename);
+    if(fileInfo.isReadable()) {
+        QFile file(filename);
+        file.open(QIODevice::ReadOnly | QIODevice::Text);
+        QByteArray msg = file.readAll();
+        file.close();
+
+        QTextEdit *textedit = newFile();
+        textedit->setWindowTitle(filename);
+        windowHash.key(textedit)->setText(filename);
+
+        if(fileInfo.suffix() == "htm" || fileInfo.suffix() == "html")
+            textedit->setHtml(msg);
+        else
+            textedit->setPlainText(msg);
+
+    } else
+        QMessageBox::warning(this, "Error", "Can't Read this file", QMessageBox::Ok);
 }
 
 void QtEditor::saveFile() {
-    QString fileName = QFileDialog::getSaveFileName(this,
-                                                    tr("Select file to save"), ".","Text File(*.txt *.html *.c *.cpp *.h)");
-    qDebug() << fileName;
+    qDebug("Save this file");
+    QMdiSubWindow *window = mdiArea->currentSubWindow();
+    if(window != nullptr) {
+        QTextEdit *textedit = qobject_cast<QTextEdit*>(window->widget( ));
+        QString filename = textedit->windowTitle();
+        if(!filename.length()) {
+            filename = QFileDialog::getSaveFileName(this,
+                        tr("Select file to save"), ".", tr("Text Files (*.txt *.html *.htm *.c *.cpp *.h *.hpp *.cs)"));
+            if(!filename.length()) return;
+            textedit->setWindowTitle(filename);
+            windowHash.key(textedit)->setText(filename);
+        }
 
-
+        QFile file(filename);
+        file.open(QIODevice::WriteOnly | QIODevice::Text);
+        QFileInfo fileInfo(filename);
+        if(fileInfo.isWritable()) {
+            QByteArray msg = (fileInfo.suffix() == "htm" || fileInfo.suffix() == "html")?
+                                 textedit->toHtml().toUtf8():textedit->toPlainText().toUtf8();
+            file.write(msg);
+        } else
+            QMessageBox::warning(this, "Error", "Can't Save this file", QMessageBox::Ok);
+        file.close();
+    }
 }
 
 void QtEditor::saveAsFile() {
-    QString fileName = QFileDialog::getSaveFileName(this,
-                                                    tr("Select file to save as"), QDir::home().dirName(),"Text File(*.txt *.html *.c *.cpp *.h)");
-    qDebug() << fileName;
+    qDebug("Save As a file");
+    QMdiSubWindow *window = mdiArea->currentSubWindow();
+    if(window != nullptr) {
+        QTextEdit *textedit = qobject_cast<QTextEdit*>(window->widget( ));
+        QString filename = QFileDialog::getSaveFileName(this,
+                            tr("Select file to save"), ".", tr("Text Files (*.txt *.html *.htm *.c *.cpp *.h *.hpp *.cs)"));
 
-
+        if(!filename.length()) return;
+        textedit->setWindowTitle(filename);
+        QFile file(filename);
+        file.open(QIODevice::WriteOnly | QIODevice::Text);
+        QFileInfo fileInfo(filename);
+        if(fileInfo.isWritable()) {
+            QByteArray msg = (fileInfo.suffix() == "htm" || fileInfo.suffix() == "html")?
+                                 textedit->toHtml().toUtf8():textedit->toPlainText().toUtf8();
+            file.write(msg);
+        } else
+            QMessageBox::warning(this, "Error", "Can't Save this file", QMessageBox::Ok);
+        file.close();
+    }
 }
 
+void QtEditor::print() {
+    QPrinter printer(QPrinter::HighResolution);
+    printer.setFullPage(true);
+    QPrintDialog printDialog(&printer, this);
+    if(printDialog.exec() == QDialog::Accepted) {
+        QTextEdit *textedit = (QTextEdit*)mdiArea->currentSubWindow()->widget();
+        textedit->print(&printer);
+    }
+}
 void QtEditor::undo() {
     QMdiSubWindow *subWindow = mdiArea->currentSubWindow();
     if(subWindow != nullptr) {
@@ -334,4 +424,17 @@ void QtEditor::alignJustify() {
     textedit->setAlignment(Qt::AlignJustify);
 }
 
+void QtEditor::setTextFont(QFont font) {
+    qDebug("setTextFont");
+    QTextEdit *textedit = (QTextEdit*)mdiArea->currentSubWindow( )->widget( );
+    textedit->setCurrentFont(font);
+}
+
+void QtEditor::setTextSize(qreal size) {
+    qDebug("setTextSize");
+    QTextEdit *textedit = (QTextEdit*)mdiArea->currentSubWindow( )->widget( );
+    QFont font = textedit->currentFont( );
+    font.setPointSizeF(size);
+    textedit->setCurrentFont(font);
+}
 QtEditor::~QtEditor() {}
