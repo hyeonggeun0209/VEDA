@@ -3,7 +3,6 @@
         <file>images/about.png</file>
         <file>images/center.png</file>
         <file>images/copy.png</file>
-        <file>images/cut.png</file>
         <file>images/justify.png</file>
         <file>images/left.png</file>
         <file>images/new.png</file>
@@ -20,5 +19,12 @@
         <file>images/color.png</file>
         <file>images/font.png</file>
         <file>images/qt.png</file>
+        <file>images/print.png</file>
+        <file>images/cut.png</file>
+        <file>images/cascade.png</file>
+        <file>images/file.png</file>
+        <file>images/tile.png</file>
+        <file>images/next.png</file>
+        <file>images/previous.png</file>
     </qresource>
 </RCC>
