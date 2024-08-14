@@ -1,0 +1,5 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource prefix="i18n">
+<file alias="HelloQt_ko_KR.qm">/Users/jinurung/VEDA/qt/HelloQt/build/Qt_6_7_2_for_macOS-Debug/.qm/HelloQt_ko_KR.qm</file>
+</qresource>
+</RCC>
