@@ -10,6 +10,9 @@
 #include <QMenu>
 #include <QContextMenuEvent>
 #include <QApplication>
+#include <QMessageBox>
+#include <QTextStream>
+#include <QProcess>
 
 Widget::Widget(QWidget *parent)
     : QWidget(parent)
@@ -91,6 +94,7 @@ void Widget::copyFile() { // 파일 복사
         QString newFile = directory->absoluteFilePath(filenameLineEdit->text());
         QFile::copy(filename, newFile); // QFile의 static 메소드 사용
     }
+    directory->refresh();
     refreshDir();
 }
 
@@ -103,11 +107,42 @@ void Widget::changeDir() {
         directory->cd(filename);
         directory->refresh();
         refreshDir();
+    }else if(checkDir.isExecutable()) {
+        QProcess cmd;
+        QStringList arguments;
+        cmd.start(filename, arguments);
+
+        outputEdit->clear();
+        if(!cmd.waitForStarted()) return; // 실행 완료 대기
+        QByteArray result = cmd.readAllStandardOutput();
+        outputEdit->append(result);
+        if(!cmd.waitForFinished()) return; // 종료 완료 대기
+        result = cmd.readAllStandardOutput();
+        outputEdit->append(result);
+
+    }else if(checkDir.isFile()) { // 파일이면
+        if(checkDir.isReadable()) { // 읽기 가능하면 파일을 열어서
+            QFile file(filename);
+            file.open(QFile::ReadOnly);
+            QTextStream in(&file); // 읽을 파일에 대한 스트림
+
+            outputEdit->setWindowTitle(filename);
+            outputEdit->clear(); // QTextEdit의 내용을 지우고 표시
+
+            QString line;
+            while (in.readLineInto(&line))
+                outputEdit->append(line);
+
+            file.close();
+        } else {
+            QMessageBox::warning(this, "Error", "Can't Read this file");
+        }
+
     }
 }
 
 void Widget::makeDir() { // 디렉토리 생성
-    if(filenameLineEdit->text().length() && dirListWidget->currentItem()!= NULL) {
+    if(filenameLineEdit->text().length()) {
         directory->mkdir(filenameLineEdit->text());
         directory->refresh(); // QDir 클래스는 현재의 디렉토리 정보를 캐싱
         refreshDir();
