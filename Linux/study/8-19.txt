@@ -1,4 +1,28 @@
 old style unix command
 
     ie
-        ls, 
+        ls, cp, mv, rm 26x26 = 520 + 156
+
+    command -options object
+
+    old style:
+
+        tar xf file.tar
+        
+find . -name "*file"
+
+find . -name "*file" -exec cat {} \;
+
+find . -name "*file" | xargs cat
+
+grep -n hap d2/d2file
+
+ls -l | sort -k 5
+
+sort a | uniq   // 중복되는 것 제거해서 정렬
+
+tar -cvf a.tar *
+
+gzip a.tar
+
+gunzip a.tar.gz
