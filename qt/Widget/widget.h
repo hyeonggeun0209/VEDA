@@ -15,13 +15,13 @@ class Widget : public QWidget
 public:
     Widget(QWidget *parent = nullptr);
     ~Widget();
-private:
-    QRadioButton *radioButton[4];
-    QButtonGroup *buttonGroup;
-    QCheckBox *checkBox[4];
-    QLabel *label;
-public slots:
-    void selectButton(int id);
+// private:
+//     QRadioButton *radioButton[4];
+//     QButtonGroup *buttonGroup;
+//     QCheckBox *checkBox[4];
+//     QLabel *label;
+// public slots:
+//     void selectButton(int id);
 };
 
 #endif // WIDGET_H
