@@ -1,0 +1,91 @@
+To linux
+
+    1. desktop
+
+        GUI (o)
+            - gedit
+            - vscode
+            - ...
+
+    2. server 
+        GUI (x)
+            - nano
+            - vi
+
+----------------------------------
+To exe
+
+    1. in windows
+
+        COFF format
+
+        .exe ( meaningful )
+
+    2. in linux (Unix)
+
+        ELF format
+
+        .out ( meaningless )
+
+
+            a.c
+        gcc -E      // pre-process
+            a.i
+
+        gcc -S      // compile
+            a.s
+
+        gcc -c      // assemble
+            a.o ( re-locatable )
+
+        gcc     // locate/link
+            a.out ( executable )
+    ---------------------------
+
+        objcopy
+
+            a.bin
+            a.hex ( romable file )
+
+        rom-writer ( JTAG tool )
+
+----------------------------------
+To make and Makefile
+
+    make : autotools
+
+    make <-
+
+        1. Makefile
+        2. makefile
+        3. gnumakefile
+
+    make -f <makefilename>
+
+    @Makefile
+
+        - rule
+
+            target : dependencies
+            <tab> command
+
+----------------------------------
+To bash vs Makefile
+
+    rm is the command in bash
+
+    rm is in the Makefile -> make
+
+    is Makefile a shell script?     // No
+
+----------------------------------
+To debugger
+    
+    1. intrusive
+
+        i.e. printf()
+        i.e. JTAG
+
+    2. non-intrusive
+
+        i.e. ETM
