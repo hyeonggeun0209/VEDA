@@ -1,0 +1,115 @@
+root file system
+
+    linux system
+
+        1. bootloader
+            i.e.
+                "u-boot"    at board
+                GRUB         at pc
+
+        2. kernel
+
+                vmlinux -> zImage ( uzImage )
+
+        3. root file system
+
+                "/" - rfs ( storage )
+                "/boot" - boot device
+
+
+        mount
+            "/"
+            "/"
+
+----------------------------------
+To HDD
+
+    1. MBR ( Master Boot Record ) // bad -> brick
+
+    2. Partition table : upto 4
+        D:
+        E:
+        F:
+
+    3. File allocation table
+
+        FAT16 / FAT32 / exFAT / ...
+
+        copy.c : 1-9-13
+
+    4. DATA blocks
+
+        blockid 0, 1, 2, 3, 4, ... 0:4KB
+
+----------------------------------
+To link
+
+    1. hard link
+
+        ln file1 file2       // link to a file
+
+    2. soft link ( symbolic )
+
+        ln -s file1 file2       // link to a file
+
+        ln -s dir1 dir2     // link to directory
+
+        하드링크로는 디렉토리 링크를 만들 수 없지만 심볼릭은 가능하다!
+
+        하드링크는 i노드가 같기때문에 위치를 옮겨도 같지만 
+        심볼릭링크는 i노드가 다르기 때문에 위치가 달라지면 링크가 깨진다.
+
+        디렉토리는 만들면 링크가 2개인데 이름뿐 아니라 . 도 가지고 있다.
+
+----------------------------------
+To CPU mode
+
+    1. Privileged mode ( 특권모드 )
+
+        kernel mode ( Supervisor mode )
+        i.e. ARM
+        "SVC" mode
+
+        i.e. M
+            "Handler" mode
+
+    2. un Privileged mode ( 비특권모드 )
+
+        user mode
+            i.e. ARM
+                "USR" mode
+        
+        i.e. M
+            "Thread" mode
+
+----------------------------------
+To file functions
+
+    1. 고수준 입출력 함수
+
+        FILE 구조체 사용 ( struct )
+
+        FILE *fp;
+
+        fp = fopen( "file path name" , open-mode );
+
+                f----();
+
+    2. 저수준 입출력 함수
+
+        file descriptor ( integer )
+
+        int fd;
+
+        fd = open( "file path name", open-mode, permission );
+
+    stdin - 0, stdout - 1, stderr - 2
+
+----------------------------------
+To process
+
+    a.out
+        
+
+
+    a.out
