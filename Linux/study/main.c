@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "copy.h"
-#define MAXLINE 100
+#define MAXLINE 10
 
 void copy(char from[], char to[]);
 char line[MAXLINE];
