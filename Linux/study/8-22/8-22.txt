@@ -108,8 +108,60 @@ To file functions
 ----------------------------------
 To process
 
-    a.out
+    a.out   @ HDD
+
+        passive process
+
+    run ~~
+
+    a.out   @ RAM
+
+        active process
+
+
+    int main() {
+
+        int pid;
+
+        pid = fork();
         
+        // 부모 프로세스는 pid가 0보다 작거나 0보다 큰 경우 만 존재한다. 0일 경우는 X
+        // 자식 프로세스가 생성되면 pid는 0 값을 가진다.
+        if (pid == 0) { ... };
+
+        if (pid > 0) { ... };
+
+        if (pid < 0) { ... };
 
 
-    a.out
+    }
+
+----------------------------------
+To process vs thread
+
+    1. execution unit
+
+        schedule unit ( entity )
+    
+    multi-tasking
+
+        task(s)
+
+    in Linux
+
+        "process" <--- Linux
+
+        "light weight process" -- "posix thread"  <--- Unix!
+
+----------------------------------
+To user process vs kernel thread
+
+    @ in user space ( userland )
+    process - user process
+    thread - pthread ( user process )
+
+    @ in kern space ( kernland )
+
+        kthread ( old, kernel_thread )
+        -> worker thread
+
