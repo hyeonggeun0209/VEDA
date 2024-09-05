@@ -10,13 +10,16 @@
 StockManager::StockManager()
 {
    ifstream file;
-   file.open("stocklist.txt");
+   file.open("stocklist.csv");
    if(!file.fail()) {
        while(!file.eof()) {
            vector<string> row = parseCSV(file, ',');
            if(row.size()) {
                int id = atoi(row[0].c_str());
-               Stock* c = new Stock(id, atoi(row[1].c_str()), row[2]);
+               Stock* c = new Stock(id, row[1], atoi(row[2].c_str()));
+               for(int i = 0; i < atoi(row[2].c_str()); i++) {
+                    c->setP_id(atoi(row[i+3].c_str()));
+               }
                StockList.insert( { id, c } );
            }
        }
@@ -26,29 +29,54 @@ StockManager::StockManager()
 
 StockManager::~StockManager()
 {
-   ofstream file;
-   file.open("stocklist.txt");
-   if(!file.fail()) {
-      for (const auto& v : StockList) {
-          Stock* c = v.second;
-          file << c->id() << ", ";
-          file << c->getQuantity() << ", ";
-          file << c->getSection() << endl;
-      }
+    ofstream file;
+    file.open("stocklist.csv");
+    if(!file.fail()) {
+        for (const auto& v : StockList) {
+            Stock* c = v.second;
+            file << c->id() << ", ";
+            file << c->getSection() << ", ";
+            file << c->getQuantity();
+            for(int i = 0; i < c->getQuantity(); i++) {
+                    file << ", " << c->getP_id().at(i);
+            }
+            file << endl;
+        }
    }
    file.close( );
+}
+void StockManager::incrementStockQuantity(int id, const string& name) {
+    for (auto& stock : StockList) {
+        Stock* s = stock.second;
+        if (s->getSection() == name) {
+            if(find(s->getP_id().begin(), s->getP_id().end(), id) == s->getP_id().end()) {
+                cout << name << "*" << endl;
+                s->setP_id(id);
+                s->incrementQuantity();
+            } else {
+                cout << name;
+                cout << id << s->getP_id().size() << " ";
+            }
+        }
+    }
 }
 
 void StockManager::inputStock( )
 {
-    string pid, quantity, section;
-    cout << "product id : "; cin >> pid;
-    cout << "quantity : "; cin >> quantity;
+    string section;
+    int pid, quantity;
     cout << "section : "; cin.ignore(); getline(cin, section, '\n'); //cin >> section;
+    cout << "quantity : "; cin >> quantity;
 
     int id = makeId( );
-    Stock* c = new Stock(id, atoi(quantity.c_str()), section);
+    Stock* c = new Stock(id, section, quantity);
     StockList.insert( { id, c } );
+}
+
+void StockManager::storeProduct(ProductManager& pm) {
+    for(int i = 0; i < pm.getsize(); i++) {
+        incrementStockQuantity(pm.search(i)->id(), pm.search(i)->getName());
+    }
 }
 
 Stock* StockManager::search(int id)
@@ -69,7 +97,8 @@ void StockManager::modifyStock(int key)
     cout << setw(12) << setfill(' ') << c->getQuantity() << " | ";
     cout << setw(12) << c->getSection() << endl;
 
-    string pid, quantity, section;
+    string pid, section;
+    int quantity;
     // cout << "product id : "; cin >> pid;
     cout << "quantity : "; cin >> quantity;
     cout << "section : "; cin.ignore(); getline(cin, section, '\n'); //cin >> address;
@@ -81,12 +110,17 @@ void StockManager::modifyStock(int key)
 
 void StockManager::displayInfo()
 {
-    cout << endl << "  ID  |     Section Name     |     Quantity" << endl;
+    cout << endl << "  ID  |    Section Name    |    Quantity   |   p_id" << endl;
     for (const auto& v : StockList) {
          Stock* c = v.second;
          cout << setw(5) << setfill('0') << right << c->id() << " | " << left;
-         cout << setw(12) << setfill(' ') << c->getSection() << " | ";
-         cout << setw(12) << c->getQuantity() << endl;
+         cout << setw(12) << setfill(' ') << right << c->getSection() << "       | ";
+         cout << setw(9) << setfill(' ') << right << c->getQuantity() << "     | ";
+         cout << setw(5) << setfill(' ') << right;
+         for(int i=0; i < c->getP_id().size(); i++) {
+            cout << c->getP_id().at(i);
+         }
+         cout << endl;
     }
 }
 
@@ -122,47 +156,4 @@ vector<string> StockManager::parseCSV(istream &file, char delimiter)
         }
     }
     return row;
-}
-
-
-bool StockManager::displayMenu()
-{
-    int ch, key;
-    cout << "\033[2J\033[1;1H";
-    cout << "+++++++++++++++++++++++++++++++++++++++++++++" << endl;
-    cout << "                 Stock Manager                 " << endl;
-    cout << "+++++++++++++++++++++++++++++++++++++++++++++" << endl;
-    cout << "  1. Display Stock List                     " << endl;
-    cout << "  2. input Stock                            " << endl;
-    cout << "  3. Delete Stock                           " << endl;
-    cout << "  4. Modify Stock                           " << endl;
-    cout << "  5. Quit Stock Manager                       " << endl;
-    cout << "+++++++++++++++++++++++++++++++++++++++++++++" << endl;
-    cout << " What do you wanna do? ";
-    cin >> ch;
-    switch(ch) {
-        case 1: default:
-            displayInfo();
-            cin.ignore();
-            getchar();
-            break;
-        case 2:
-            inputStock();
-            break;
-        case 3:
-            displayInfo();
-            cout << "   Choose Key : ";
-            cin >> key;
-            deleteStock(key);
-            break;
-        case 4:
-            displayInfo();
-            cout << "   Choose Key : ";
-            cin >> key;
-            modifyStock(key);
-            break;
-        case 5:
-            return false;
-    }
-    return true;
 }

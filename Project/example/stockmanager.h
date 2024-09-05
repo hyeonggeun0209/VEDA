@@ -4,26 +4,27 @@
 #include <map>
 #include <vector>
 #include "stock.h"
-
+#include "productmanager.h"
+class ProductManager;
 using namespace std;
 
 class StockManager {
-  public:
-      StockManager();
-      ~StockManager();
-
-      void inputStock( );
-      void deleteStock(int);
-      void modifyStock(int);
-      Stock* search(int);
-      int makeId();
-      void displayInfo();
-      vector<string> parseCSV(istream&, char);
-
-      bool displayMenu();
-
-  private:
-      map<int, Stock*> StockList;
+    private:
+        map<int, Stock*> StockList;
+    public:
+        StockManager();
+        ~StockManager();
+        void storeProduct(ProductManager& pm);
+        void incrementStockQuantity(int id, const string& name);
+        void updateStock(const string& productType, int quantity);
+        void inputStock( );
+        void addStock(const string&);
+        void deleteStock(int);
+        void modifyStock(int);
+        Stock* search(int);
+        int makeId();
+        void displayInfo();
+        vector<string> parseCSV(istream&, char);
 };
 
 #endif    // __STOCK_MANAGER_H__
