@@ -8,11 +8,13 @@ using namespace std;
 
 class Stock {
 public:
-    Stock(int id = 0, int quantity = 0, string = "");
-
-    // int getP_id() const;
+    Stock(int id = 0, string = "", int quantity = 0);
+    
+    void setP_id(int id);
+    vector<int> getP_id();
+    void incrementQuantity();
     int  getQuantity() const;
-    void setQuantity(string&);
+    void setQuantity(int);
     string getSection() const;
     void setSection(string&);
     int id() const;
