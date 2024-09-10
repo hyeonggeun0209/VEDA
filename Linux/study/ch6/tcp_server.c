@@ -48,11 +48,13 @@ int main(int argc, char **argv)
         printf("Client is connected : %s\n", mesg);
         if((n = read(csock, mesg, BUFSIZ)) <= 0)
             perror("read()");
+        mesg[n] = '\0';
         printf("Received data : %s", mesg);
 
         /* 클라이언트로 buf에 있는 문자열 전송 */
         if(write(csock, mesg, n) <= 0)
             perror("write()");
+            
         close(csock); 			/* 클라이언트 소켓을 닫음 */
     } while(strncmp(mesg, "q", 1));
 

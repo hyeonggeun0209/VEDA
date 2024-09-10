@@ -43,11 +43,15 @@ int main(int argc, char **argv)
             return -1;
         }
 
+        shutdown(ssock, SHUT_WR);
+
         memset(mesg, 0, BUFSIZ);
         if(recv(ssock, mesg, BUFSIZ, 0) <= 0) { 		/* 데이터를 소켓으로부터 읽는다. */
             perror("recv()");
             return -1;
         }
+
+        shutdown(ssock, SHUT_RD);
 
         printf("Received data : %s", mesg); 		/* 받아온 문자열을 화면에 출력 */ 
         
