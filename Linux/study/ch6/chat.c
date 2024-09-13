@@ -6,7 +6,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-#define TCP_PORT 5100 				/* 서버의 포트 번호 */
+#define TCP_PORT 5200 				/* 서버의 포트 번호 */
 
 static int g_noc = 0;
 typedef struct client_sock {
@@ -68,11 +68,13 @@ int main(int argc, char **argv)
         /* 네트워크 주소를 문자열로 변경 */
         inet_ntop(AF_INET, &cliaddr.sin_addr, mesg, BUFSIZ);
         printf("Client is connected : %s\n", mesg);
+
         cs[g_noc] = (c_sock*)malloc(sizeof(c_sock));
         strcpy(cs[g_noc]->ip,mesg);
         cs[g_noc]->csfd = csock;
         cs[g_noc]->s_id = g_noc;
         g_noc++;
+        
         /* 연결되는 클라이언트와의 통신을 위한 자식 프로세스 생성 */
         if((pid = fork()) < 0) {  
           perror("Error");
@@ -84,15 +86,6 @@ int main(int argc, char **argv)
             printf("(%d)Received data : %s", g_noc-1, mesg);
             write(p[1], mesg, sizeof(mesg));
           } while(strncmp(mesg, "q", 1));
-        } else {
-            while(g_noc != 0) {
-              n = read(p[0], mesg, sizeof(mesg));
-              printf("%d\n", g_noc);
-              for(int i = 0; i < g_noc; i++) {
-              if(write(cs[i]->csfd, mesg, n) <= 0) 
-                perror("write()");
-              }
-            }
         }
         // printf("Client is disconnected : %s\n", cs[0]->ip);
         close(csock); 			/* 클라이언트 소켓을 닫음 */
