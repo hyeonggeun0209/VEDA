@@ -6,7 +6,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-#define TCP_PORT 5100 				/* 서버의 포트 번호 */
+#define TCP_PORT 5200 				/* 서버의 포트 번호 */
 
 static int g_noc = 0;
 
