@@ -13,6 +13,7 @@
 
 int ssock;
 char user_id[MAX_ID_LEN];
+char user_pwd[MAX_ID_LEN];
 char mesg[BUFSIZ];
 
 void cleanup() {
@@ -29,7 +30,8 @@ void display_menu() {
     printf("1. 로그인\n");
     printf("2. 채팅하기\n");
     printf("3. 로그아웃\n");
-    printf("4. 종료\n");
+    printf("4. 메시지 검색\n");
+    printf("5. 종료\n");
     printf("선택: ");
 }
 
@@ -73,26 +75,28 @@ int main(int argc, char **argv)
                     printf("로그인 상태입니다. ID : %s\n", user_id);
                     printf("엔터를 눌러주세요.\n");
                     getchar();
-                    continue;
+                    break;
                 }
                 printf("사용자 ID 입력: ");
                 fgets(user_id, MAX_ID_LEN, stdin);
                 user_id[strcspn(user_id, "\n")] = 0; // 개행 문자 제거
                 sprintf(mesg, "LOGIN:%s", user_id);
                 send(ssock, mesg, strlen(mesg), 0);
+                printf("사용자 PASSWORD 입력: ");
+                fgets(user_pwd, MAX_ID_LEN, stdin);
 
                 // 서버로부터 응답 받기
                 memset(mesg, 0, BUFSIZ);
                 if (recv(ssock, mesg, BUFSIZ, 0) > 0) {
-                    printf("서버 응답: %s\n", mesg);
+                    printf("%s\n", mesg);
                 }
                 getchar();
                 break;
             case 2: // 채팅하기
                 if (strlen(user_id) == 0) {
-                    printf("먼저 로그인해주세요.\n");
+                    printf("로그인 상태가 아닙니다.\n");
                     getchar();
-                    continue;
+                    break;
                 }
                 pid = fork();
                 if (pid < 0) {
@@ -108,7 +112,7 @@ int main(int argc, char **argv)
                             send(ssock, "q", 1, 0);
                             exit(0);
                         }
-                        sprintf(mesg, "%s:%s", user_id, temp);
+                        sprintf(mesg, "%s : %s", user_id, temp);
                         send(ssock, mesg, strlen(mesg), 0);
                     }
                 } else {
@@ -119,7 +123,7 @@ int main(int argc, char **argv)
                             perror("recv()");
                             kill(pid, SIGTERM);
                             break;
-                        } else if(strncmp(mesg, "Client", 5) == 0) {
+                        } else if(strcmp(mesg, "q") == 0) {
                             printf("채팅 종료\n");
                             break;
                         } else {
@@ -130,12 +134,12 @@ int main(int argc, char **argv)
                     waitpid(pid, NULL, 0);
                 }
                 getchar();
-                continue;
+                break;;
             case 3: // 로그아웃
                 if (strlen(user_id) == 0) {
                     printf("로그인 상태가 아닙니다.\n");
                     getchar();
-                    continue;
+                    break;
                 }
                 sprintf(mesg, "LOGOUT:%s", user_id);
                 send(ssock, mesg, strlen(mesg), 0);
@@ -145,11 +149,36 @@ int main(int argc, char **argv)
                 // 서버로부터 응답 받기
                 memset(mesg, 0, BUFSIZ);
                 if (recv(ssock, mesg, BUFSIZ, 0) > 0) {
-                    printf("서버 응답: %s\n", mesg);
+                    printf("%s\n", mesg);
                 }
                 getchar();
                 break;
             case 4: // 종료
+                if (strlen(user_id) == 0) {
+                    printf("로그인 상태가 아닙니다.\n");
+                    getchar();
+                    break;
+                }
+                printf("검색하려는 메시지를 입력해주세요.\n");
+                while(1) {
+                    char temp[MAX_MSG_LEN];
+                    fgets(temp, MAX_MSG_LEN, stdin);
+                    temp[strcspn(temp, "\n")] = 0; // 개행 문자 제거
+                    if (strcmp(temp, "q") == 0) {
+                        getchar();
+                        break;
+                    }
+                    sprintf(mesg, "FIND: %s", temp);
+                    send(ssock, mesg, strlen(mesg), 0);
+
+                    memset(mesg, 0, BUFSIZ);
+                    if (recv(ssock, mesg, BUFSIZ, 0) > 0) {
+                        printf("%s\n", mesg);
+                    }
+                    getchar();
+                }
+                break;
+            case 5: // 종료
                 sprintf(mesg, "quit");
                 send(ssock, mesg, strlen(mesg), 0);
                 cleanup();
@@ -157,7 +186,7 @@ int main(int argc, char **argv)
             default:
                 printf("잘못된 선택입니다. 다시 선택해주세요.\n");
                 getchar();
-                continue;
+                break;
         }
     }
 
