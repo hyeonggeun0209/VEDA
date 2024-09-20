@@ -8,7 +8,7 @@
 #include <sys/wait.h>
 
 #define TCP_PORT 5200
-#define MAX_CLIENTS 5
+#define MAX_CLIENTS 10
 
 // 클라이언트 소켓 정보를 저장하는 구조체
 typedef struct client_sock {
@@ -22,6 +22,8 @@ typedef struct client_sock {
 static int g_noc = 0;   // 현재 연결된 클라이언트 수
 int pipefd[2];  // 프로세스 간 통신을 위한 파이프
 c_sock* cs[MAX_CLIENTS];    // 클라이언트 소켓 정보 배열
+char mm[BUFSIZ][BUFSIZ];
+static int msg_index = 0;
 
 // 자식 프로세스 종료 처리 함수
 void sigchld_handler(int signo) {
@@ -45,21 +47,38 @@ void sigchld_handler(int signo) {
 // 모든 클라이언트에게 메시지 브로드캐스트 함수
 void broadcast_message(char *message, int sender_pid) {
     // ... (sender_pid를 제외한 모든 클라이언트에게 메시지 전송)
-    if(strcmp(message, "Login success") == 0 || strcmp(message, "Logout success") == 0 || strncmp(message, "Client", 5) == 0) {
-        for (int i = 0; i < g_noc; i++) {
+    char broadcast_msg[BUFSIZ + 50];
+    for (int i = 0; i < g_noc; i++) {
+        if(strncmp(message, "LOGIN:", 6) == 0 || strncmp(message, "LOGOUT:", 7) == 0 || strcmp(message, "q") == 0) {
             if (cs[i]->id == sender_pid) {
-                strcpy(cs[i]->name, message);
                 write(cs[i]->csfd, message, strlen(message));
                 break;
             }
-        }
-    } else {
-        for (int i = 0; i < g_noc; i++) {
-            if (cs[i]->id != sender_pid) {
+        } else if(strncmp(message, "Find:", 5) == 0) {
+            if (cs[i]->id == sender_pid) {
                 write(cs[i]->csfd, message, strlen(message));
+                break;
             }
+        } else if (cs[i]->id != sender_pid) {
+            write(cs[i]->csfd, message, strlen(message));
         }
     }
+}
+
+char* find_message(char *message) {
+    int i = 0;
+    char tmp[BUFSIZ];
+    char *ptr1;
+    strncpy(tmp, message, strlen(message));
+    ptr1 = strtok(tmp, ": ");
+    ptr1 = strtok(NULL, " ");
+    while(i < msg_index) {
+        if(strstr(mm[i], ptr1) != NULL) {
+            return mm[i];
+        }
+        i++;
+    }
+    return "None";
 }
 
 // SIGUSR1 시그널 핸들러 (브로드캐스트 메시지 처리)
@@ -85,19 +104,34 @@ void handle_client(int client_index) {
         if ((n = read(cs[client_index]->csfd, mesg, BUFSIZ)) <= 0) {
             break;
         }
-        printf("(%s) Received data: %s\n", cs[client_index]->ip, mesg);
-        strcmp(cs[client_index]->name, "")? cs[client_index]->name : cs[client_index]->ip;
+        printf("%s\n",mesg);
+
         char broadcast_msg[BUFSIZ + 50];
+
         if(strncmp(mesg, "LOGIN:", 6) == 0) {
-            snprintf(broadcast_msg, sizeof(broadcast_msg), "Login success");
+            char tmp[BUFSIZ + 50];
+            char *ptr1;
+            snprintf(tmp, sizeof(tmp), "%s", mesg);
+            ptr1 = strtok(tmp, ":");
+            ptr1 = strtok(NULL, " ");
+            strcpy(cs[client_index]->name, ptr1);
+            snprintf(broadcast_msg, sizeof(broadcast_msg), "%s", mesg);
         } else if(strncmp(mesg, "LOGOUT:", 7) == 0) {
-            snprintf(broadcast_msg, sizeof(broadcast_msg), "Logout success");
+            snprintf(broadcast_msg, sizeof(broadcast_msg), "%s", mesg);
         }  else if (strcmp(mesg, "q") == 0) {
-            snprintf(broadcast_msg, sizeof(broadcast_msg), "Client %s is disconnecting.", cs[client_index]->ip);
-        } else if (strncmp(mesg, "quit", 4) == 0) {
-            printf("Client %s is disconnecting.\n", cs[client_index]->ip);
+            snprintf(broadcast_msg, sizeof(broadcast_msg), "q");
+        } else if (strcmp(mesg, "quit") == 0) {
+            if(strcmp(cs[client_index]->name, "") == 0) {
+                printf("Client %s is disconnecting.\n", cs[client_index]->ip);
+            } else {
+                printf("Client %s is disconnecting.\n", cs[client_index]->name);
+            }
             break;
+        } else if(strncmp(mesg, "FIND:", 5) == 0) {
+            snprintf(broadcast_msg, sizeof(broadcast_msg), "Find: %s", find_message(mesg));
         } else {
+            strncpy(mm[msg_index], mesg, strlen(mesg));
+            msg_index++;
             snprintf(broadcast_msg, sizeof(broadcast_msg), "%s", mesg);
         }
         
@@ -105,13 +139,6 @@ void handle_client(int client_index) {
         write(pipefd[1], broadcast_msg, strlen(broadcast_msg) + 1);
         kill(getppid(), SIGUSR1);
     }
-
-    // 클라이언트 종료 메시지 전송
-    char disconnect_msg[BUFSIZ + 50];
-    snprintf(disconnect_msg, sizeof(disconnect_msg), "Client %s has disconnected.\n", cs[client_index]->ip);
-    write(pipefd[1], &pid, sizeof(int));
-    write(pipefd[1], disconnect_msg, strlen(disconnect_msg) + 1);
-    kill(getppid(), SIGUSR1);
 
     close(cs[client_index]->csfd);
     exit(0);
