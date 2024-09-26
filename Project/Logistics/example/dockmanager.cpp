@@ -153,12 +153,12 @@ Dock* DockManager::searchDock(int dockId) const {
 void DockManager::displayDockList() const {
     cout << endl;
     cout<<setw(5) <<  setfill(' ')   <<  left   <<  "ID"                <<" | "
-            <<setw(16) <<  setfill(' ')   <<  left   <<  "Vehicle Numver"    <<" | "
+            <<setw(15) <<  setfill(' ')   <<  left   <<  "Vehicle Number"    <<" | "
             <<setw(14)  <<  setfill(' ')   <<  left   <<  "Item Quantity"     <<" | "
             <<setw(10) <<  setfill(' ')   <<  left   <<  "Item type"         <<" | "
             <<setw(12) <<  setfill(' ')   <<  left   <<  "Dock Status"       <<" | "
             <<setw(19)  <<  setfill(' ')   <<  left   <<  "Entry Time"        <<" | "
-            <<setw(19)  <<  setfill(' ')   <<  left   <<  "Exit Time"         <<" | " <<endl;
+            <<setw(19)  <<  setfill(' ')   <<  left   <<  "Exit Time"          <<endl;
 
     for (const auto& entry : dockList) {
         const Dock* dock = entry.second.get();
