@@ -1,0 +1,2 @@
+/Library/Developer/CommandLineTools/usr/bin/ar qc libvector_viewer.a CMakeFiles/vector_viewer.dir/vector_viewer.cpp.o
+/Library/Developer/CommandLineTools/usr/bin/ranlib libvector_viewer.a

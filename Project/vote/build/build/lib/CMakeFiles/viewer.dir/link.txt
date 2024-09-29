@@ -1,0 +1,2 @@
+/Library/Developer/CommandLineTools/usr/bin/ar qc libviewer.a CMakeFiles/viewer.dir/viewer.cpp.o
+/Library/Developer/CommandLineTools/usr/bin/ranlib libviewer.a

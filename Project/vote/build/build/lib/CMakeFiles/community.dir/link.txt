@@ -1,0 +1,2 @@
+/Library/Developer/CommandLineTools/usr/bin/ar qc libcommunity.a CMakeFiles/community.dir/community.cpp.o
+/Library/Developer/CommandLineTools/usr/bin/ranlib libcommunity.a
