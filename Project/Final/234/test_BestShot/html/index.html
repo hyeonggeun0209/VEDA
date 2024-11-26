@@ -1,0 +1,107 @@
+<html>
+  <head>
+    <meta http-equiv='Content-Type' content='text/html; charset=utf-8' />
+    <title>SampleApp</title>
+    <link href="./images/wisenet_icon.ico" rel="shortcut icon" type="image/x-icon">
+    <link href="./styles/main.css" rel="stylesheet" type="text/css">
+    <script src="scripts/Crypto.js"></script>
+    <script src="scripts/digest-fetch.js"></script>
+    <script src="scripts/app.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+
+        const isEnable = document.getElementById('isEnable');
+
+        isEnable.addEventListener('change', function() {
+          if(isEnable.checked == true)
+          {
+            Face.disabled = false;
+            Person.disabled = false;
+            LicensePlate.disabled = false;
+            Vehicle.disabled = false;
+            base64ObjectImage.disabled = false;
+            StartGetBetShot.disabled = false;
+            StopGetBetShot.disabled = false;
+          }
+          else
+          {
+            Face.disabled = true;
+            Person.disabled = true;
+            LicensePlate.disabled = true;
+            Vehicle.disabled = true;
+            base64ObjectImage.disabled = true;
+            StartGetBetShot.disabled = true;
+            StopGetBetShot.disabled = true;
+          }
+          });     
+      });
+    </script>
+  </head>
+  <body>
+    <header id="nav">
+      <div class="row">
+        <h1 id="logo">
+          <img src="./images/wisenet_logo.svg" onload="getBestShotConfig()" alt="WISENET" title="WISENET" class="logo_lg">
+        </h1>
+        <img src="./images/techwin_logo.jpg" alt="Hanwha Techwin" title="Hanwha Techwin" class="techwin-logo">
+      </div>
+    </header>
+    <main>
+      <div id="sidebar">
+        <div class="row">
+          <img src="./images/setup.png" alt="SETTINGS" title="SETTINGS" class="icon-setup"><b>SETTINGS</b>
+        </div>
+        <div class="row">
+          <button class="btn btn-orange" onclick="getBestShotConfig()" style="margin-bottom: 10px;">Get Bestshot Config</button>
+          <button class="btn btn-orange" onclick="SetBestShotConfig()" style="margin-bottom: 10px;">Set Bestshot Config</button>
+          <button class="btn btn-orange" onclick="fetchStreamData()" style="margin-bottom: 10px;" id = "StartGetBetShot">Start Get Bestshot</button>
+          <button class="btn btn-orange" onclick="StopStreamData()" id = "StopGetBetShot">Stop Get Bestshot</button>
+        </div>
+      </div>
+      <div id="main_contents">
+        <div class="row">
+          <h2>Best Shot Configtion</h2>
+          </br>
+          <table class="table" id="Config-table">
+            <thead>
+              <tr class="header">
+                <th width="10%">isEnable</th>
+                <th width="10%">Face</th>
+                <th width="10%">Person</th>
+                <th width="10%">LicensePlate</th>
+                <th width="10%">Vehicle</th>
+                <th width="10%">base64ObjectImage</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><input type="checkbox" name="isEnable" id="isEnable" ></td>
+                <td><input type="checkbox" name="Face" id="Face"></td>
+                <td><input type="checkbox" name="Person" id="Person"></td>
+                <td><input type="checkbox" name="LicensePlate" id="LicensePlate"></td>
+                <td><input type="checkbox" name="Vehicle" id="Vehicle"></td>
+                <td><input type="checkbox" name="base64ObjectImage" id="base64ObjectImage"></td>
+              </tr>
+            </tbody>
+          </table>
+          </br>
+          </br>
+          <h2>Best Shot</h2>
+          </br>
+          <table class="table" id="device-table">
+            <thead>
+              <tr class="header">
+                <th width="10%">Type</th>
+                <th width="50%">Attribute</th>
+                <th width="40%">Image</th>
+              </tr>
+            </thead>
+            <tbody id="table-body">
+              <!-- Dữ liệu sẽ được thêm vào đây -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,3427 @@
+/*
+ * iav_ioctl.h
+ *
+ * History:
+ *	2013/03/12 - [Cao Rongrong] Created file
+ *	2013/12/12 - [Jian Tang] Modified file
+ *
+ * Copyright (c) 2016 Ambarella, Inc.
+ *
+ * This file and its contents ("Software") are protected by intellectual
+ * property rights including, without limitation, U.S. and/or foreign
+ * copyrights. This Software is also the confidential and proprietary
+ * information of Ambarella, Inc. and its licensors. You may not use, reproduce,
+ * disclose, distribute, modify, or otherwise prepare derivative works of this
+ * Software or any portion thereof except pursuant to a signed license agreement
+ * or nondisclosure agreement with Ambarella, Inc. or its authorized affiliates.
+ * In the absence of such an agreement, you agree to promptly notify and return
+ * this Software to Ambarella, Inc.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+ * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF NON-INFRINGEMENT,
+ * MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL AMBARELLA, INC. OR ITS AFFILIATES BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; COMPUTER FAILURE OR MALFUNCTION; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
+
+#ifndef __IAV_IOCTL_H__
+#define __IAV_IOCTL_H__
+
+/*! @file iav_ioctl.h
+ *  @brief This file defines IAV driver ioctl api.
+ */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
+#include <basetypes.h>
+#include <linux/ioctl.h>
+#include <config.h>
+
+#include <iav_common.h>
+#include <iav_vin_ioctl.h>
+#include <iav_vout_ioctl.h>
+#include <ambas_imgproc_arch.h>
+
+
+/*! @addtogroup iav-ioctl-general-helper
+ *  @{
+ */
+
+/*! @macros IAV_MAX_CHANNEL_NUM
+ *  @brief define max channel number.
+ */
+#ifndef IAV_MAX_CHANNEL_NUM
+#define IAV_MAX_CHANNEL_NUM			(8)
+#endif
+
+/*! @macros IAV_HEVC_TILE_NUM
+ *  @brief define iav hevc encode tile number.
+ */
+#define IAV_HEVC_TILE_NUM			(3)
+
+/*! @macros IAV_MAX_CANVAS_BUF_NUM
+ *  @brief define iav max canvas buffer number.
+ */
+#define IAV_MAX_CANVAS_BUF_NUM		(12)
+
+/*! @macros IAV_MAX_PYRAMID_LAYERS
+ *  @brief define iav max pyramid layer number.
+ */
+#define IAV_MAX_PYRAMID_LAYERS		(6)
+
+/*! @macros IAV_MAX_PASS_NUM
+ *  @brief define iav max pass number for each channel.
+ */
+#define IAV_MAX_PASS_NUM			(2)
+
+/*! @macros VIN_INSTANCES
+ *  @brief define vin instance number, 6 real vinc + 1 virtual vinc.
+ */
+#define VIN_INSTANCES				(6 + 1)
+
+/*! @macros VIN_CONTROLLER_NUM
+ *  @brief define vin controller number, equal to VIN_INSTANCES.
+ */
+#define VIN_CONTROLLER_NUM			VIN_INSTANCES
+
+/*! @macros IAV_MIN_VP_DRAM_PRIORITY
+ *  @brief define vp dram priority minimum value.
+ */
+#if defined(CONFIG_ARCH_CV2) || defined(CONFIG_ARCH_CV22) || defined(CONFIG_ARCH_CV25)
+#define IAV_MIN_VP_DRAM_PRIORITY	(2)
+#else
+#define IAV_MIN_VP_DRAM_PRIORITY	(0)
+#endif
+
+/*! @macros IAV_MAX_VP_DRAM_PRIORITY
+ *  @brief define vp dram priority maximum value.
+ */
+
+#if defined(CONFIG_ARCH_CV2)
+#define IAV_MAX_VP_DRAM_PRIORITY	(7)
+#elif defined(CONFIG_ARCH_CV22) || defined(CONFIG_ARCH_CV25)
+#define IAV_MAX_VP_DRAM_PRIORITY	(5)
+#else
+#define IAV_MAX_VP_DRAM_PRIORITY	(0)
+#endif
+
+/*! @macros LPDDR4_ALIGN
+ *  @brief define lpddr4 align value.
+ */
+#define LPDDR4_ALIGN			(64)
+
+
+/*! @enum dsp_mode
+ *  @brief DSP mode enum to list dsp mode state.
+ */
+enum dsp_mode {
+	DSP_CURRENT_MODE 				= 0xFF,	/*!< 0xFF */
+	DSP_NORMAL_ISO_MODE				= 0x0,	/*!< 0x0 */
+	DSP_MULTI_REGION_WARP_MODE		= 0x1,		/*!< 0x1 */
+	DSP_FUSION_MODE 				= 0x2,		/*!< 0x2 */
+	DSP_MULTI_PASS_IDSP_ROTATE_MODE = 0x3,		/*!< 0x3 */
+	DSP_HDR_LINE_INTERLEAVED_MODE	= 0x5,			/*!< 0x5 */
+	DSP_ENCODE_MODE_TOTAL_NUM		= 0x6,		/*!< 0x6 */
+	DSP_ENCODE_MODE_FIRST			= DSP_NORMAL_ISO_MODE, /*!< DSP_NORMAL_ISO_MODE */
+	DSP_ENCODE_MODE_LAST			= DSP_ENCODE_MODE_TOTAL_NUM, /*!< DSP_ENCODE_MODE_TOTAL_NUM */
+};
+
+/*! @enum dsp_vout_profile
+ *  @brief DSP vout profile enumeration.
+ */
+enum dsp_vout_profile {
+	DSP_VOUT_PROFILE_DEFAULT = 0,                   /*!< 0, vout0 no osd, vout1 with osd, stream osd */
+	DSP_VOUT_PROFILE_4K_WITH_16BIT_OSD = 1,         /*!< 1, vout0 4k with osd, vout1 4k with osd */
+	DSP_VOUT_PROFILE_VOUT0_D640_VOUT1_M720 = 2,     /*!< 2, vout0 640, vout1 720 with osd, stream osd */
+	DSP_VOUT_PROFILE_VOUT1_720P_WITH_16BIT_OSD = 3, /*!< 3, vout0 default, vout1 720p with 16bit osd, stream osd */
+	DSP_VOUT_PROFILE_VOUT0_720P_WITH_16BIT_OSD = 4, /*!< 4, vout1 default, vout0 720p with 16bit osd, stream osd */
+	DSP_VOUT_PROFILE_NUM /*!< 5 */
+};
+
+/*! @enum hevc_perf_mode
+ *  @brief hevc perf mode enumeration.
+ */
+enum hevc_perf_mode {
+	IAV_HEVC_PERF_MODE_DEFAULT = 0,
+	IAV_HEVC_PERF_MODE_FAST = 1,
+	IAV_HEVC_PERF_MODE_FASTEST = 2,
+	IAV_HEVC_PERF_MODE_NUM = 3,
+	IAV_HEVC_PERF_MODE_FIRST = IAV_HEVC_PERF_MODE_DEFAULT,
+	IAV_HEVC_PERF_MODE_LAST = IAV_HEVC_PERF_MODE_NUM,
+};
+
+/*! @enum iav_chip_id
+ *  @brief iav chip id enumeration.
+ */
+enum iav_chip_id {
+	IAV_CHIP_ID_UNKNOWN			= -1, /*!< -1 */
+
+	/* CV2 */
+	IAV_CHIP_ID_CV2_55			= 0, /*!< 0 */
+	IAV_CHIP_ID_CV2_66			= 1, /*!< 1 */
+	IAV_CHIP_ID_CV2_66_TEST		= 2, /*!< 2 */
+	IAV_CHIP_ID_CV2_88			= 3, /*!< 3 */
+	IAV_CHIP_ID_CV2_99			= 4, /*!< 4 */
+	IAV_CHIP_ID_CV2_LAST		= 5, /*!< 5 */
+	IAV_CHIP_ID_CV2_FIRST		= IAV_CHIP_ID_CV2_55, /*!< IAV_CHIP_ID_CV2_55 */
+	IAV_CHIP_ID_CV2_NUM		= IAV_CHIP_ID_CV2_LAST - IAV_CHIP_ID_CV2_FIRST, /*!< IAV_CHIP_ID_CV2_LAST - IAV_CHIP_ID_CV2_FIRST */
+
+	/* CV2 Auto */
+	IAV_CHIP_ID_CV2AQ_76		= 0x20, /*!< 0x20 */
+	IAV_CHIP_ID_CV2AX_81		= 0x21, /*!< 0x21 */
+	IAV_CHIP_ID_CV2AX_86		= 0x22, /*!< 0x22 */
+	IAV_CHIP_ID_CV2AX_99		= 0x23, /*!< 0x23 */
+	IAV_CHIP_ID_CV2AQ_99		= 0x24, /*!< 0x24 */
+	IAV_CHIP_ID_CV2AUTO_LAST	= 0x25, /*!< 0x25 */
+	IAV_CHIP_ID_CV2AUTO_FIRST	= IAV_CHIP_ID_CV2AQ_76, /*!< IAV_CHIP_ID_CV2AQ_76 */
+	IAV_CHIP_ID_CV2AUTO_NUM		= IAV_CHIP_ID_CV2AUTO_LAST - IAV_CHIP_ID_CV2AUTO_FIRST, /*!< IAV_CHIP_ID_CV2AUTO_LAST - IAV_CHIP_ID_CV2AUTO_FIRST */
+
+	/* CV22 */
+	IAV_CHIP_ID_CV22_55			= 0, /*!< 0 */
+	IAV_CHIP_ID_CV22_66			= 1, /*!< 1 */
+	IAV_CHIP_ID_CV22_88			= 2, /*!< 2 */
+	IAV_CHIP_ID_CV22_99			= 3, /*!< 3 */
+	IAV_CHIP_ID_CV22_55N		= 4, /*!< 4 */
+	IAV_CHIP_ID_CV22_66N		= 5, /*!< 5 */
+	IAV_CHIP_ID_CV22_88N		= 6, /*!< 6 */
+	IAV_CHIP_ID_CV22_99N		= 7, /*!< 7 */
+	IAV_CHIP_ID_CV22_LAST		= 8, /*!< 8 */
+	IAV_CHIP_ID_CV22_FIRST		= IAV_CHIP_ID_CV22_55, /*!< IAV_CHIP_ID_CV22_55 */
+	IAV_CHIP_ID_CV22_NUM		= IAV_CHIP_ID_CV22_LAST - IAV_CHIP_ID_CV22_FIRST, /*!< IAV_CHIP_ID_CV22_LAST - IAV_CHIP_ID_CV22_FIRST */
+
+	/* CV22 Auto */
+	IAV_CHIP_ID_CV22AQ_16		= 0x20, /*!< 0x20 */
+	IAV_CHIP_ID_CV22AQ_26		= 0x21, /*!< 0x21 */
+	IAV_CHIP_ID_CV22AQ_36		= 0x22, /*!< 0x22 */
+	IAV_CHIP_ID_CV22AQ_76		= 0x23, /*!< 0x23 */
+	IAV_CHIP_ID_CV22AX_16		= 0x24, /*!< 0x24 */
+	IAV_CHIP_ID_CV22AX_26		= 0x25, /*!< 0x25 */
+	IAV_CHIP_ID_CV22AX_36		= 0x26, /*!< 0x26 */
+	IAV_CHIP_ID_CV22AX_76		= 0x27, /*!< 0x27 */
+	IAV_CHIP_ID_CV22A_26		= 0x28, /*!< 0x28 */
+	IAV_CHIP_ID_CV22A_36		= 0x29, /*!< 0x29 */
+	IAV_CHIP_ID_CV22A_99		= 0x2A, /*!< 0x2A */
+	IAV_CHIP_ID_CV22AX_99		= 0x2B, /*!< 0x2B */
+	IAV_CHIP_ID_CV22AQ_99		= 0x2C, /*!< 0x2C */
+
+	IAV_CHIP_ID_CV22AUTO_LAST	= 0x2D, /*!< 0x2D */
+	IAV_CHIP_ID_CV22AUTO_FIRST	= IAV_CHIP_ID_CV22AQ_16, /*!< IAV_CHIP_ID_CV22AQ_16 */
+	IAV_CHIP_ID_CV22AUTO_NUM	= IAV_CHIP_ID_CV22AUTO_LAST - IAV_CHIP_ID_CV22AUTO_FIRST, /*!< IAV_CHIP_ID_CV22AUTO_LAST - IAV_CHIP_ID_CV22AUTO_FIRST */
+
+	/* CV25 */
+	IAV_CHIP_ID_CV25_33			= 0, /*!< 0 */
+	IAV_CHIP_ID_CV25_66			= 1, /*!< 1 */
+	IAV_CHIP_ID_CV25_99			= 2, /*!< 2 */
+	IAV_CHIP_ID_CV25_33M		= 3, /*!< 3 */
+	IAV_CHIP_ID_CV25_55M		= 4, /*!< 4 */
+	IAV_CHIP_ID_CV25_99M		= 5, /*!< 5 */
+	IAV_CHIP_ID_CV25_88		= 6, /*!< 6 */
+	IAV_CHIP_ID_CV25_LAST		= 7, /*!< 7 */
+	IAV_CHIP_ID_CV25_FIRST		= IAV_CHIP_ID_CV25_33, /*!< IAV_CHIP_ID_CV25_33 */
+	IAV_CHIP_ID_CV25_NUM		= IAV_CHIP_ID_CV25_LAST - IAV_CHIP_ID_CV25_FIRST, /*!< IAV_CHIP_ID_CV25_LAST - IAV_CHIP_ID_CV25_FIRST */
+
+	/* CV25 Auto */
+	IAV_CHIP_ID_CV25AQ_16		= 0x20, /*!< 0x20 */
+	IAV_CHIP_ID_CV25AQ_26		= 0x21, /*!< 0x21 */
+	IAV_CHIP_ID_CV25AQ_36		= 0x22, /*!< 0x22 */
+	IAV_CHIP_ID_CV25AQ_76		= 0x23, /*!< 0x23 */
+	IAV_CHIP_ID_CV25AX_26		= 0x24, /*!< 0x24 */
+	IAV_CHIP_ID_CV25AX_36		= 0x25, /*!< 0x25 */
+	IAV_CHIP_ID_CV25AX_76		= 0x26, /*!< 0x26 */
+	IAV_CHIP_ID_CV25AX_86		= 0x27, /*!< 0x27 */
+	IAV_CHIP_ID_CV25A_26		= 0x28, /*!< 0x28 */
+	IAV_CHIP_ID_CV25A_36		= 0x29, /*!< 0x29 */
+	IAV_CHIP_ID_CV25A_76		= 0x2A, /*!< 0x2A */
+	IAV_CHIP_ID_CV25A_86		= 0x2B, /*!< 0x2B */
+	IAV_CHIP_ID_CV25A_99		= 0x2C, /*!< 0x2C */
+	IAV_CHIP_ID_CV25AX_99		= 0x2D, /*!< 0x2D */
+	IAV_CHIP_ID_CV25AQ_99		= 0x2E, /*!< 0x2E */
+
+	IAV_CHIP_ID_CV25AUTO_LAST	= 0x2F, /*!< 0x2F */
+	IAV_CHIP_ID_CV25AUTO_FIRST	= IAV_CHIP_ID_CV25AQ_16, /*!< IAV_CHIP_ID_CV25AQ_16 */
+	IAV_CHIP_ID_CV25AUTO_NUM	= IAV_CHIP_ID_CV25AUTO_LAST - IAV_CHIP_ID_CV25AUTO_FIRST, /*!< IAV_CHIP_ID_CV25AUTO_LAST - IAV_CHIP_ID_CV25AUTO_FIRST */
+
+	/* S6LM */
+	IAV_CHIP_ID_S6LM_22 		= 0, /*!< 0 */
+	IAV_CHIP_ID_S6LM_33 		= 1, /*!< 1 */
+	IAV_CHIP_ID_S6LM_55 		= 2, /*!< 2 */
+	IAV_CHIP_ID_S6LM_99 		= 3, /*!< 3 */
+	IAV_CHIP_ID_S6LM_LAST		= 4, /*!< 4 */
+	IAV_CHIP_ID_S6LM_FIRST		= IAV_CHIP_ID_S6LM_22, /*!< IAV_CHIP_ID_S6LM_22 */
+	IAV_CHIP_ID_S6LM_NUM		= IAV_CHIP_ID_S6LM_LAST - IAV_CHIP_ID_S6LM_FIRST, /*!< IAV_CHIP_ID_S6LM_LAST - IAV_CHIP_ID_S6LM_FIRST */
+};
+
+/*! @} */  /* End of iav-ioctl-general-helper */
+
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_driver_version {
+	int arch;	/*!< Chip arch ID */
+	int model;	/*!< Chip model ID */
+	int major;	/*!< Major of the device driver version */
+	int minor;	/*!< Minor of the device driver version */
+	int patch;	/*!< Patch of the device driver version */
+	u32 mod_time;	/*!< Last modification time of the device driver */
+	char description[64];	/*!< Description of the device driver */
+	u32 api_version;	/*!< API version */
+	u32 idsp_version;	/*!< IDSP version */
+	u32 reserved[2];
+};
+
+struct iav_driver_dsp_info {
+	struct iav_driver_version drv_ver; /*!< Driver version information */
+	u32 dspid;	/*!< DSP Chip ID */
+	u8 dspout[4];	/*!< Output hash ID */
+	u8 dspin[8];	/*!< Input hash ID */
+};
+
+struct iav_dsp_hash {
+	u8 input[32];	/*!< dsp hash input */
+	u8 output[4];	/*!< dsp hash output */
+};
+
+struct iav_dsplog_setup {
+	int cmd;	/*!< Not currently supported. */
+	u32 args[8];	/*!< arg[0] is used to define module while arg[1] is its log level
+				Log level:
+				0 :  MINIMAL
+				1 :  NORMAL
+				2 :  VERBOSE
+				3 :  DEBUG	*/
+	u32 reserved;
+};
+
+struct iav_dsp_vp_cfg {
+	u32 vp_enable : 1;
+	u32 reserved : 31;
+	u32 cmd_addr;
+	u32 cmd_size;
+	u32 msg_addr;	// including msg queue info and msg queue
+	u32 msg_size;
+	u32 vp_algo_id;
+};
+
+struct iav_dsp_boot_params {
+	u8 vout_profile;		/*!< Specify VOUT profile to configure, @sa dsp_vout_profile */
+	u8 osd_profile[VOUT_NUM];	/*!< Specify VOUT OSD profile to configure */
+	u8 vout_profile_flag : 1;	/*!< Flag to config VOUT profile */
+	u8 vout_osd_profile_flag : 1;	/*!< Flag to config VOUT OSD profile */
+	u8 debug_chip_id_flag: 1;		/*!< Flag to config debug-chip-id */
+	u8 reserved1 : 5;
+	u8 debug_chip_id;		/*!< Specify debug-chip-id to do simulation, @sa iav_chip_id
+							It's ONLY for internal debug purpose and works ONLY on engineering chip samples. */
+	u8 reserved2[3];
+};
+
+struct iav_idle_params {
+	u8 poweroff_vin;			/*!< Flag to power off all VIN controller when DSP enter IDLE mode. */
+	u8 reserved[3];
+	struct iav_dsp_boot_params dsp_boot_params;	/*!< Parameters ONLY used in DSP boot stage */
+};
+/*! @} */  /* End of iav-ioctl-general-struct */
+
+/*! @addtogroup iav-ioctl-general-helper
+ *  @{
+ */
+enum iav_state {
+	IAV_STATE_INIT 				= -1, /*!< -1 */
+	IAV_STATE_IDLE				= 0, /*!< 0 */
+	IAV_STATE_PREVIEW			= 1, /*!< 1 */
+	IAV_STATE_ENCODING			= 2, /*!< 2 */
+	IAV_STATE_STILL_CAPTURE		= 3, /*!< 3 */
+	IAV_STATE_DECODING			= 4, /*!< 4 */
+	IAV_STATE_TRANSCODING		= 5, /*!< 5 */
+	IAV_STATE_DUPLEX			= 6, /*!< 6 */
+	IAV_STATE_EXITING_PREVIEW	= 7, /*!< 7 */
+};
+
+enum iav_boot_mode {
+	SYSTEM_NORMAL_BOOT	= 0, /*!< 0 */
+	SYSTEM_FAST_BOOT	= 1, /*!< 1 */
+};
+
+enum iav_system_query_source {
+	SYSTEM_PROCESS_GENERIC	= 0, /*!< 0 */
+	SYSTEM_PROCESS_IMAGE	= 1, /*!< 1 */
+};
+/*! @} */  /* End of iav-ioctl-general-helper */
+
+
+/*! @addtogroup iav-ioctl-general-struct
+ */
+struct iav_system_info {
+	u16 query_source; /*!< Query Source ID, @sa iav_system_query_source */
+	u16 boot_mode;    /*!< System Boot Mode, @sa iav_boot_mode */
+	u16 reserved[2];
+};
+
+/*! @addtogroup iav-ioctl-general-helper
+ *  @{
+ */
+enum iav_canvas_type {
+	IAV_CANVAS_TYPE_OFF 		= 0, /*!< 0 */
+	IAV_CANVAS_TYPE_ENCODE 		= 1, /*!< 1 */
+	IAV_CANVAS_TYPE_PREVIEW 	= 2, /*!< 2 */
+	IAV_CANVAS_TYPE_NUM 		= 3, /*!< 3 */
+};
+
+enum iav_canvas_state {
+	IAV_CANVAS_STATE_UNKNOWN	= 0, /*!< 0 */
+	IAV_CANVAS_STATE_IDLE		= 1, /*!< 1 */
+	IAV_CANVAS_STATE_BUSY		= 2, /*!< 2 */
+	IAV_CANVAS_STATE_ERROR		= 255, /*!< 255 */
+};
+/*! @} */  /* End of iav-ioctl-general-helper */
+
+/*! @addtogroup iav-ioctl-general-struct
+ */
+struct iav_canvas_info {
+	u32 canvas_id : 8;	/*!< Canvas ID */
+	u32 reserved : 24;
+	enum iav_canvas_type type;		/*!< Canvas Type enumeration, @sa iav_canvas_type */
+	enum iav_canvas_state state;	/*!< Canvas State enumeration, @sa iav_canvas_state */
+};
+
+/*! @addtogroup iav-ioctl-general-helper
+ */
+enum iav_stream_state {
+	IAV_STREAM_STATE_IDLE		= 0, /*!< 0 */
+	IAV_STREAM_STATE_STARTING	= 1, /*!< 1 */
+	IAV_STREAM_STATE_ENCODING	= 2, /*!< 2 */
+	IAV_STREAM_STATE_STOPPING	= 3, /*!< 3 */
+	IAV_STREAM_STATE_UNKNOWN	= 255, /*!< 255 */
+};
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_stream_info {
+	u32 id; /*!< Stream ID */
+	enum iav_stream_state state;	/*!< Stream State enumeration, @sa iav_stream_state */
+};
+
+struct iav_privacy_mask_info {
+	u8 channel_id;		/*!< Specify the channel ID to get privacy mask information */
+	u8 multi_factor;	/*!< It reports the IDSP PM buffer to Main buffer scaling factor */
+	u16 buffer_width;	/*!< It reports the IDSP PM buffer width */
+	u16 buffer_height;	/*!< It reports the IDSP PM buffer height */
+	u16 buffer_pitch;	/*!< It reports the IDSP PM buffer pitch */
+};
+/*! @} */  /* End of iav-ioctl-general-struct */
+
+/*! @addtogroup iav-ioctl-general-helper
+ */
+enum iav_info_id {
+	IAV_INFO_SYSTEM	= 0x00, /*!< 0x00 */
+	IAV_INFO_DRIVER	= 0x01, /*!< 0x01 */
+	IAV_INFO_CANVAS	= 0x02, /*!< 0x02 */
+	IAV_INFO_STREAM	= 0x03, /*!< 0x03 */
+	IAV_INFO_MASK	= 0x04, /*!< 0x04 */
+	IAV_INFO_WAFER_ID	= 0x05, /*!< 0x05 */
+	IAV_INFO_NUM	= 0x06, /*!< 0x06 */
+};
+
+/*! @addtogroup iav-ioctl-general-struct
+ */
+struct iav_queryinfo {
+	enum iav_info_id qid;
+	union {
+		struct iav_system_info system_info;	/*!< Query system info */
+		struct iav_driver_version driver;	/*!< Query driver version */
+		struct iav_canvas_info canvas;		/*!< Query canvas info, such as state / type */
+		struct iav_stream_info stream;		/*!< Query stream info, such as state */
+		struct iav_privacy_mask_info mask_info;	/*!< Query privacy mask info */
+		u64 chip_wafer_id;	/*!< Query Chip Unique Wafer ID */
+	} arg;
+};
+
+/*! @addtogroup iav-ioctl-general-helper
+ *  @{
+ */
+enum iav_system_params {
+	IAV_STREAM_MAX_NUM_IMPL		= 10, /*!< 10 */
+	IAV_STREAM_MAX_NUM_EXTRA	= 3,  /*!< 3 */
+	IAV_STREAM_MAX_NUM_ALL		= (IAV_STREAM_MAX_NUM_IMPL + IAV_STREAM_MAX_NUM_EXTRA), /*!< IAV_STREAM_MAX_NUM_IMPL + IAV_STREAM_MAX_NUM_EXTRA */
+};
+
+enum iav_hdr_type {
+	HDR_TYPE_OFF			= 0, /*!< 0 */
+	HDR_TYPE_BASIC			= 1, /*!< 1 */
+	HDR_TYPE_ADV_WITH_CE		= 2, /*!< 2 */
+	HDR_TYPE_TOTAL_NUM		= 3, /*!< 3 */
+};
+
+enum iav_iso_type {
+	ISO_TYPE_LOW		= 0, /*!< 0 */
+	ISO_TYPE_MIDDLE		= 1, /*!< 1 */
+	ISO_TYPE_ADVANCED	= 2, /*!< 2 */
+	ISO_TYPE_CISO		= 3, /*!< 3 */
+	ISO_TYPE_HIGH		= 4, /*!< 4 */
+	ISO_TYPE_FUSION		= 5, /*!< 5 */
+	ISO_TYPE_TOTAL_NUM	= 6, /*!< 6 */
+	ISO_TYPE_FIRST		= ISO_TYPE_LOW, /*!< ISO_TYPE_LOW */
+	ISO_TYPE_LAST		= ISO_TYPE_TOTAL_NUM, /*!< ISO_TYPE_TOTAL_NUM */
+};
+
+enum iav_max_vwarp_waitlines_count {
+	VWARP_WAITLINES_MIN = 0, /*!< 0 */
+	VWARP_WAITLINES_MAX = 255, /*!< 255 */
+};
+
+enum iav_eis_delay_count {
+	EIS_DELAY_COUNT_OFF	= 0, /*!< 0 */
+	EIS_DELAY_COUNT_MAX	= 3, /*!< 3 */
+};
+
+enum iav_back_pressure_margin {
+	BACK_PRESSURE_MARGIN_OFF	= 0, /*!< 0 */
+	BACK_PRESSURE_MARGIN_MAX	= 3, /*!< 3 */
+};
+
+enum iav_me0_scale {
+	ME0_SCALE_OFF		= 0, /*!< 0 */
+	ME0_SCALE_8X		= 1, /*!< 1 */
+	ME0_SCALE_16X		= 2, /*!< 2 */
+	ME0_SCALE_TOTAL_NUM	= 3, /*!< 3 */
+};
+
+enum iav_debug_type {
+	DEBUG_TYPE_STITCH				= (1 << 0), /*!< 1 << 0 */
+	DEBUG_TYPE_CHIP_ID				= (1 << 1), /*!< 1 << 1 */
+	DEBUG_TYPE_MAX_CHROMA_RADIUS	= (1 << 2), /*!< 1 << 2 */
+	DEBUG_TYPE_SKIP_EFM_MB			= (1 << 3), /*!< 1 << 3 */
+	DEBUG_TYPE_BREAK_POINT			= (1 << 4), /*!< 1 << 4 */
+	DEBUG_TYPE_VP_DRAM_PRIORITY		= (1 << 5), /*!< 1 << 5 */
+	DEBUG_TYPE_VSYNC_LOSS_TIMEOUT		= (1 << 6), /*!< 1 << 6 */
+	DEBUG_TYPE_HEVC_ENC_MODE		= (1 << 7), /*!< 1 << 7 */
+	DEBUG_TYPE_DUMP_DSP_CMD		= (1 << 8), /*!< 1 << 8 */
+
+};
+
+/*! @enum iav vsync loss timeout
+ *	@brief vsync loss timeout limitation
+ */
+enum iav_vsync_loss_timeout {
+	IAV_VSYNC_LOSS_TIMEOUT_MIN		= 32,	/*!< 32ms */
+	IAV_VSYNC_LOSS_TIMEOUT_DEFAULT	= 2048,	/*!< 2048ms */
+	IAV_VSYNC_LOSS_TIMEOUT_MAX		= 4095,	/*!< 4095ms */
+};
+
+/*! @} */  /* End of iav-ioctl-general-helper */
+
+/*! @addtogroup iav-ioctl-general-helper
+ *  @{
+ */
+enum iav_srcbuf_id {
+	IAV_SRCBUF_MN			= 0,	/*!< 0, main buffer */
+	IAV_SRCBUF_PC			= 1,	/*!< 1, 2nd buffer */
+	IAV_SRCBUF_PB			= 2,	/*!< 2, 3rd buffer */
+	IAV_SRCBUF_PA			= 3,	/*!< 3, 4th buffer */
+	IAV_SRCBUF_PD			= 4,	/*!< 4, 5th buffer */
+	IAV_SRCBUF_PE			= 5,	/*!< 5, 6th buffer */
+	IAV_SRCBUF_PMN			= 6,	/*!< 6, virtual pre-main buffer, only for dewarp mode */
+	IAV_SRCBUF_NUM			= 7,	/*!< 7 */
+
+	IAV_SRCBUF_EFM			= 16, 	/*!< 16, EFM buffer ID for both single and multi VIN */
+
+	/* For user space convenience */
+	IAV_SRCBUF_1			= IAV_SRCBUF_MN, /*!< IAV_SRCBUF_MN */
+	IAV_SRCBUF_2			= IAV_SRCBUF_PC, /*!< IAV_SRCBUF_PC */
+	IAV_SRCBUF_3			= IAV_SRCBUF_PB, /*!< IAV_SRCBUF_PB */
+	IAV_SRCBUF_4			= IAV_SRCBUF_PA, /*!< IAV_SRCBUF_PA */
+	IAV_SRCBUF_5			= IAV_SRCBUF_PD, /*!< IAV_SRCBUF_PD */
+	IAV_SRCBUF_6			= IAV_SRCBUF_PE, /*!< IAV_SRCBUF_PE */
+
+	IAV_SRCBUF_FIRST		= IAV_SRCBUF_MN, /*!< IAV_SRCBUF_MN */
+	IAV_SRCBUF_LAST			= IAV_SRCBUF_PMN, /*!< IAV_SRCBUF_PMN */
+	IAV_SRCBUF_LAST_PMN		= IAV_SRCBUF_PMN + 1, /*!< IAV_SRCBUF_PMN + 1 */
+	IAV_SUB_SRCBUF_FIRST		= IAV_SRCBUF_PC, /*!< IAV_SRCBUF_PC */
+	IAV_SUB_SRCBUF_LAST		= IAV_SRCBUF_PMN, /*!< IAV_SRCBUF_PMN */
+};
+
+#define IAV_SRCBUF_INPUT_H_ALIGN		(4)
+#define IAV_SRCBUF_INPUT_V_ALIGN		(2)
+#define IAV_SRCBUF_OUTPUT_X_ALIGN		(2)
+#define IAV_SRCBUF_OUTPUT_Y_ALIGN		(4)
+#define IAV_SRCBUF_OUTPUT_WIDTH_ALIGN	(32)
+#define IAV_SRCBUF_OUTPUT_HEIGHT_ALIGN	(16)
+
+enum iav_codec_option {
+	IAV_CODEC_H265_H264_MJPEG	= 0x0, /*!< 0x0 */
+	IAV_CODEC_H265_MJPEG		= 0x1, /*!< 0x1 */
+	IAV_CODEC_H264_MJPEG		= 0x2, /*!< 0x2 */
+	IAV_CODEC_MJPEG_ONLY		= 0x3, /*!< 0x3 */
+	IAV_CODEC_TOTAL_NUM			= 0x4, /*!< 0x4 */
+};
+
+enum iav_srcbuf_state {
+	IAV_SRCBUF_STATE_UNKNOWN	= 0, /*!< 0 */
+	IAV_SRCBUF_STATE_IDLE		= 1, /*!< 1 */
+	IAV_SRCBUF_STATE_BUSY		= 2, /*!< 2 */
+	IAV_SRCBUF_STATE_ERROR		= 255, /*!< 255 */
+};
+
+enum iav_pyramid_scale {
+	IAV_PYRAMID_SCALE_SQRT2		= 0,	/*!< 0, 1/sqrt(2) for each layers, both width and height */
+	IAV_PYRAMID_SCALE_2X		= 1,	/*!< 1, 1/2 for each layers, both width and height */
+	IAV_PYRAMID_SCALE_ARBITRARY = 2,	/*!< 2, arbitrary size for pyramid layer 1 */
+};
+/*! @} */  /* End of iav-ioctl-general-helper */
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_pyramid_cfg {
+	u32 chan_id : 4;	/*!< input channel ID */
+	u32 enable : 1;		/*!< This is a flag to specify if the pyramid is enabled */
+	u32 reserved0 : 3;
+	u32 input_buf_id : 8;	/*!< input source buffer ID */
+	u32 layers_map : 6;	/*!< bit map for pyramid layers, one bit for one layer */
+	u32 manual_feed : 1;	/*!< bit flag to control manual feed mode. 1 means using manual feed, 0 means using internal buffer. */
+	u32 reserved1 : 1;
+	u32 item_num : 8;	/*!< pyramid buffer item num for manuall feed case. Only valid when @b manual_feed is set. */
+	enum iav_pyramid_scale scale_type;	/*!< pyramid scale type, @sa iav_pyramid_scale */
+	unsigned long buf_addr;	/*!< External pyramid buffer addr. Only valid when @b manual_feed is set. */
+	u32 buf_size;			/*!< External pyramid buffer size. Only valid when @b manual_feed is set. */
+	u8 frame_rate;			/*!< Frame rate for the pyramid output layers. */
+	u8 reserved2[3];
+	struct iav_rect crop_win[IAV_MAX_PYRAMID_LAYERS];	/*!< Cropping window in each layer output coordinate */
+	struct iav_window rescale_size;	/*!< Rescale size for pyramid layer 1. The scale factor of W or H (layer0 -> layer1) must
+		be in the range of <b>1/8X (Upscale) to 8X (Downscale)</b>, while the scale factor from layerN (1<= N < 5) to layerN+1 is
+		fixed 2X (Downscale) in both width & height. Only valid when <b>"scale_type == IAV_PYRAMID_SCALE_ARBITRARY"</b>. */
+};
+
+struct iav_buf_cfg {
+	struct iav_rect input;	/*!< Source Buffer input offset and size */
+	struct iav_rect output; /*!< Source Buffer output offset and size */
+	u32 canvas_id : 8;	/*!< Canvas ID */
+	u32 unwarp : 1;		/*!< This is a flag to specify if current Source Buffer is unwarped. */
+	u32 reserved : 23;
+};
+
+struct iav_dptz {
+	u8 channel_id;	/*!< Channel ID */
+	u8 pass_id;		/*!< Pass ID */
+	u8 buf_id;		/*!< Source Buffer ID */
+	u8 reserved;
+	struct iav_buf_cfg buf_cfg; /*!< Source Buffer configuration */
+};
+/*! @} */  /* End of iav-ioctl-general-struct */
+
+/*! @addtogroup iav-ioctl-general-helper
+ *  @{
+ */
+enum iav_sync_type {
+	IAV_FRAME_SYNC	= 0, /*!< 0 */
+	IAV_STREAM_SYNC	= 1, /*!< 1 */
+};
+
+#define IAV_INVALID_CANVAS_ID	(0xFF)
+/*! @} */  /* End of iav-ioctl-general-helper */
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_stream_resource {
+	struct iav_window max_size;	/*!< The maximum resolution for encode streams, which is used for allocating memory in DSP. It is recommended not to exceed the main source buffer resolution. */
+	struct iav_window efm_size;	/*!< The efm buffer size and only used when efm_enable is 1. */
+	u32 max_M : 8;			/*!< The maximum GOP M for each streams. Streams will have B frames when M > 1. Stream A can have larger range of M from 1 to 3, while the other streams are limited to 1. */
+	u32 fast_seek_enable : 1;	/*!< Fast seek enable flag for each stream. */
+	u32 two_ref_enable : 1;		/*!< Two ref enable flag for each stream. */
+	u32 max_svct_layers_minus_1 : 2;/*!< This is a flag to specify the value for the maximum SVCT layers minus 1. */
+	u32 max_num_minus_1_ltrs : 1;	/*!< Maximum long term number minus 1 for stream */
+	u32 codec_enable : 3;		/*!< Stream codec configuration @sa iav_codec_option */
+	u32 stream_mv_statis_enable : 1;/*!< This is a flag to enable MV(motion vector) dump for each stream. */
+	u32 efm_enable : 1;			/*!< This is a flag to enable / disable encoding from memory */
+	u32 efm_buf_num : 4;		/*!< The efm buffer number in one efm buffer pool and only used when efm_enable is 1 */
+	u32 efm_skip_waiting : 1;	/*!< The efm_skip_waiting skip waiting for encoding start/stop status when it's value is 1 and only used when efm_enable is 1 */
+	u32 reserved : 9;
+};
+
+struct iav_canvas_order {
+	u32 id : 5;		/*!< Canvas ID */
+	u32 valid : 1;		/*!< This is a flag to enable / disable Canvas Channel Order. */
+	u32 chan_num : 4;	/*!< The total number of channels whose source buffers are on current Canvas. */
+	u32 reserved : 22;
+	u8 chan_order[IAV_MAX_CHANNEL_NUM]; /*!< Channel orders */
+};
+
+struct iav_canvas_cfg {
+	struct iav_window max;	/*!< Canvas width and height */
+	enum iav_canvas_type type; /*!< Canvas Type, @sa iav_canvas_type */
+	s8 extra_dram_buf;	/*!< The extra dram buffer number for current Canvas. Valid range -3~4. */
+	u8 vout_id : 1;		/*!< This is a flag to set VOUT ID. It is valid only when Canvas Type is IAV_CANVAS_TYPE_PREVIEW. */
+	u8 vout_YUV422 : 1; 	/*!< Specify VOUT YUV data format. 0: YUV420; 1: YUV422 */
+	u8 reserved : 6;
+	u8 frame_rate;		/*!< Frame rate for the canvas containing sub source buffers. */
+	u8 reserved1[1];
+	struct iav_canvas_order order; /*!< Canvas Channel Order, @sa iav_canvas_order */
+};
+/*! @} */  /* End of iav-ioctl-general-struct */
+
+/*! @addtogroup iav-ioctl-general-helper
+ *  @{
+ */
+enum IAV_BLEND_AREA {
+	IAV_BLEND_LEFT_OR_TOP 	= 0, /*!< 0, This stands for left channel or top channel. */
+	IAV_BLEND_RIGHT_OR_BOT 	= 1, /*!< 1, This stands for right channel or bottom channel. */
+	IAV_BLEND_NUM		= 2, /*!< 2 */
+	IAV_BLEND_INVALID	= 0xFF, /*!< 0xFF */
+};
+
+enum IAV_BLEND_PARAM {
+	IAV_BLEND_NONBLOCK				= (1 << 0), /*!< 1 << 0 */
+	IAV_BLEND_ALPHA_ADDR_INVALID	= 0xFFFFFFFF, /*!< 0xFFFFFFFF */
+	IAV_BLEND_OVERLAP_AREA_MAX		= 0x7, /*!< 0x7. Maximum overlap area number. */
+};
+
+enum IAV_BLEND_TYPE {
+	IAV_BLEND_TYPE_NONE = 0, /*!< 0 */
+	IAV_BLEND_TYPE_HOR = 1, /*!< 1, This is to specify multi-channel stitched horizontally (Left & Right). */
+	IAV_BLEND_TYPE_VER = 2, /*!< 2, This is to specify multi-channel stitched vertically (Top & Bottom). */
+	IAV_BLEND_TYPE_NUM, /*!< 3 */
+
+	IAV_BLEND_TYPE_FIRST = IAV_BLEND_TYPE_NONE, /*!< IAV_BLEND_TYPE_NONE */
+	IAV_BLEND_TYPE_LAST = IAV_BLEND_TYPE_NUM, /*!< IAV_BLEND_TYPE_NUM */
+};
+
+#define IAV_CUSTOM_SEI_SIZE_MIN		(16)
+#define IAV_CUSTOM_SEI_SIZE_MAX		(0x8000)
+
+enum iav_yuv_format {
+	IAV_YUV_FORMAT_YUV422	= 0, /*!< 0 */
+	IAV_YUV_FORMAT_YUV420	= 1, /*!< 1 */
+	IAV_YUV_FORMAT_YUV400	= 2, /*!< 2 */
+};
+
+#define IAV_IMG_SCALE_BUF_ALIGN				(4)
+#define IAV_IMG_SCALE_BUF_PITCH_ALIGN		(64)
+#define IAV_IMG_SCALE_Q_DEPTH_MAX	(16)
+#define IAV_IMG_SCALE_Q_DEPTH_MIN	(8)
+
+/*! @} */  /* End of iav-ioctl-general-helper */
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_pass_cfg {
+	u8 input_pass_id;	/*!< Input pass ID for current pass */
+	u8 input_buf_id;	/*!< Input buffer ID for current pass, fixed from Main (0) only */
+	u8 reserved[2];
+};
+
+struct iav_chan_cfg {
+	u8 vsrc_id;					/*!< VIN Source ID from which current channel gets the raw data */
+	u8 pass_num;				/*!< Total pass num for current channel */
+	u8 reserved0[2];
+	struct iav_rect input;				/*!< The capture raw area from VIN. Currently always default to the whole VIN area. */
+	struct iav_pass_cfg pass_cfg[IAV_MAX_PASS_NUM];
+	struct iav_window buf_max[IAV_MAX_PASS_NUM][IAV_SRCBUF_NUM];	/*!< The maximum resolution(only width is needed)
+					for source buffers, which is used for allocating line buffers in DSP. It is recommended not
+					to exceed the sensor resolution. */
+	u16 max_padding_width;		/*!< The maximum padding width for LDC stitching. It should only be set when @b lens_warp_enable = 1. */
+	u16 max_main_input_width;	/*!< The maximum input width for main buffer. This param needs to be configured when user application
+					wants to get a small main buffer input size like 720x480 with a large vin size like 3840x2160. If
+					this param is set, main buffer input width cannot exceed it through run-time update during Prevew /
+					Encoding state. Default is 0(equals to VIN raw width). */
+	u8 idsp_fps;		/*!< IDSP output FPS. Since CV22 supports FPS downsampling, customers can use this parameter to select
+					a channel FPS lower than VIN FPS. Default is 0(equals to VIN FPS). */
+	u8 blend_left_or_top : 1;		/*!< This is a flag to enable / disable left / top channel blend. It's ONLY available when
+								system is NOT IAV_BLEND_TYPE_NONE. */
+	u8 blend_right_or_bot : 1;	/*!< This is a flag to enable / disable right / bot channel blend. It's ONLY available when
+								system is NOT IAV_BLEND_TYPE_NONE. */
+	u8 mctf_cmpr : 1;		/*!< This is a flag to enable / disable mctf compression. Default is 1. */
+	u8 mctf_10bit_ref : 1;		/*!< This is a flag to enable / disable mctf 10-bit reference. Default is 0. */
+	u8 main_burst_tile : 1; 	/*!< This is a flag to enable / disable main burst tile mode. Default is 1. */
+	u8 vin_overflow_protection : 1; /*!< This is a flag to enable / disable VIN overflow protection. */
+	u8 lens_warp_enable : 1;	/*!< This is a flag to enable / disable lens warp. It must be enabled if user want to test LDC function. */
+	u8 use_vsrc_ctx_pattern : 1;	/*!< This is a flag to enable / disable vsrc_ctx pattern mode. */
+	u8 img_stats_src_chan;		/*!< The source channel ID whose 3A statistic data is used to do 3A control for current channel.
+					Generally, each channel uses its own 3A statistic data to do 3A control. While for application
+					cases like multi-channel from single vin or stitching among different channels, all channels
+					can use the same channel's 3A statistic data to do 3A control. */
+	u8 vsrc_ctx;		/*!< Specify the sensor Context ID of vsrc_id for current channel.
+					For dual-context supported sensors, vsrc_ctx can be set to 1. Else, only 0 is used. */
+	u32 vsrc_ctx_pattern;	/*!< vsrc_ctx pattern. Only valid when use_vsrc_ctx_pattern = 1. */
+	u32 vsrc_ctx_pattern_mask;	/*!< vsrc_ctx pattern mask. Only valid when use_vsrc_ctx_pattern = 1. */
+	u32 sensor_ctrl : 1;		/*!< This is a flag to enable / disable setting shutter/agc control to current channel's
+						VIN Source. When current channel is a virtual channel in multi-channel from single vin case,
+						need to set this flag to 0. Default is 1. */
+	u32 expo_num : 3;	/*!< Exposure number. Valid range is 1~4. By default, IAV driver sets expo_num
+						according to hdr_mode in struct vindev_mode */
+	u32 hdr_type : 2;		/*!< Current Channel's HDR mode. @b Read @b Only. */
+	u32 low_delay_vin_vout : 1; 	/*!< This is a flag to enable / disable low delay vin / vout. Only valid in enc-mode 0. */
+	u32 max_vwarp_wait_lines : 10;	/*!< Specify maximum vwarp wait lines for LDC and fisheye dewarp use case. */
+	u32 invert_mode : 1;	/*!< This is a flag to enable / disable invert mode. Default is 0. */
+	u32 packing_mode_enable : 1;	/*!< This is a flag to enable / disable VIN packing mode. Only valid when raw_capture_enable = 1. */
+	u32 rotate_cw : 1;	/*!< Channel clockwise 90 degree rotation flag; 0: No clockwise rotation of 90; 1: A clockwise rotation of 90. */
+	u32 hflip : 1;		/*!< Channel horizontal flip flag; 0: No horizontal flip; 1: Horizontal flip */
+	u32 vflip : 1;		/*!< Channel vertical flip flag; 0: No vertical flip; 1: Vertical flip */
+	u32 extra_downscale_enable : 1;	/*!< Enable extra downscale if downscale >= 6X. Default is 0. */
+	u32 is_still_fusion_proc : 1;	/*!< This is a flag to show if current channel does still fusion or video fusion. @b Read @b Only. */
+	u32 fusion_mode_flags : 8;	/*!< This is a flag to show if current channel processes RGB or IR input in
+								DSP_FUSION_MODE. 255: RGB input; 2: IR input. @b Read @b Only. */
+	u16 max_warp_input_width;	/*!< The maximum warp input width. */
+	u16 max_warp_output_width;	/*!< The maximum warp output width. */
+};
+
+struct iav_img_scale_cfg {
+	u8 enable : 1;	/*!< This is a flag to enable img scale */
+	u8 reserved1 : 7;
+	u8 src_buf_id;	/*!< Read only. Show src_buf_id used by img scale */
+	u8 job_queue_depth;	/*!< Specify the depth of scaling task queue inside DSP */
+	u8 reserved2;
+	u16 max_input_width;	/*!< Specify max input width */
+	u16 max_output_width;	/*!< Specify max output width */
+};
+
+struct iav_scale_buf_info {
+	u32 pid;	/*!< Specify memory partition id. Only valid when use_phys = 0 */
+	u32 use_phys : 1;	/*!< This is a flag to specify if the buffer start address is physcial
+						address (use_phys = 1) or offset within a memory partition (use_phys = 0). */
+	u32 reserved : 31;
+	union {
+		unsigned long y_offset;	/*!< Specify Y buffer offset within the memory partition. Only valid when use_phys = 0 */
+		unsigned long y_addr;		/*!< Specify Y buffer physical address. Only valid when use_phys = 1 */
+	};
+	union {
+		unsigned long uv_offset;	/*!< Specify UV buffer offset within the memory partition. Only valid when use_phys = 0 */
+		unsigned long uv_addr;		/*!< Specify UV buffer physical address. Only valid when use_phys = 1 */
+	};
+	u16 pitch;	/*!< buffer pitch */
+	u16 height;	/*!< buffer height */
+};
+
+struct iav_img_scale {
+	enum iav_yuv_format format;		/*!< YUV format */
+
+	struct iav_rect input;	/*!< input crop window in input_buf domain. */
+	struct iav_window output;	/*!< output size in output_buf domain. */
+
+	struct iav_scale_buf_info input_buf;	/*!< input YUV buffer. Y is planar format, UV is interleaved format. */
+	struct iav_scale_buf_info output_buf;	/*!< output YUV buffer. Y is planar format, UV is interleaved format. */
+
+	u32 non_block_flag : 1; /*!< non-blocking call flag */
+	u32 reserved : 31;
+
+	u64 task_id;		/*!< Output param: the unique task id of current image scaling task. */
+};
+
+struct iav_wait_img_scale {
+	u64 task_id;		/*!< Unique image scaling task id */
+};
+
+struct iav_system_resource {
+	u8 encode_mode;		/*!< Encode modes for different cases. @sa dsp_mode.
+					0x00:  Advanced ISO mode. This is the mode for lowest latency from VIN to VOUT.
+					0x01:  Multiple Region Warp mode. This is the mode for multi-region fisheye dewarp.
+					0x02:  Sensor Fusion mode. This is the mode for Video or Image fusion.
+					0x03:  Multiple Pass IDSP Rotation mode. This is the mode for multi-pass scale with rotation.
+					0x05:  Line interleaved HDR mode. This is the mode for 3X HDR and multi-pass scale.
+					0xFF:  Current encode mode. This is the mode to get current encode mode number. */
+	u8 max_stream_num;	/*!< The maximum supported stream number in the specified encode mode */
+	u8 canvas_num;		/*!< Canvas number. @sa IAV_MAX_CANVAS_BUF_NUM */
+	u8 chan_num;		/*!< Channel number. @sa IAV_MAX_CHANNEL_NUM */
+
+	/* Read only */
+	u32 raw_pitch_in_bytes;		/*!< @b Read @b only. It indicates the raw pitch in bytes. */
+	u32 total_memory_size : 8;	/*!< @b Read @b only. It indicates the total DRAM size used in the system. */
+	u32 iso_type : 3;		/*!< @b Read @b only. This is a flag to specify the ISO type */
+	u32 is_stitched : 1;		/*!< @b Read @b only. This is a flag to specify whether VIN is stitched or not */
+	u32 vout_only : 1;		/*!< @b Read @b only. This is a flag to specify whether to use VOUT only or not */
+	u32 reserved1 : 19;
+
+	/* Writable for different configuration */
+	u32 raw_capture_enable : 1;	/*!< This is a flag to enable / disable raw capture function. It's only valid in some encode modes. */
+	u32 mixer_a_enable : 1;		/*!< This is a flag to enable / disable mixer a */
+	u32 mixer_b_enable : 1;		/*!< This is a flag to enable / disable mixer b */
+	u32 osd_from_mixer_a : 1;	/*!< This is a flag to specify mixer a used for OSD */
+	u32 osd_from_mixer_b : 1;	/*!< This is a flag to specify mixer b used for OSD */
+	u32 vsync_detection_disable : 1;/*!< Disable vsync detection or not */
+	u32 me0_scale : 2;		/*!< This is a flag to indicate ME0 scale factor, @sa iav_me0_scale */
+	u32 eis_delay_count : 2;	/*!< This is a flag to specify EIS delay frame num */
+	u32 back_pressure_margin : 2;	/*!< Back pressure margin count */
+	u32 hevc_off : 1;		/*!< Disable HEVC encoding */
+	u32 enc_sync_type : 1;		/*!< Select frame synchronization or stream synchronization */
+	u32 enc_raw_rgb : 1;		/*!< This is a flag to enable / disable encoding from raw CFA data */
+	u32 enc_raw_yuv : 1;		/*!< This is a flag to enable / disable encoding from raw YUV data(must be YUV422 format) */
+
+	u32 emirror_vout_sync_enable : 1;/*!< This is a flag to enable / disable emirror vout sync. */
+	u32 custom_sei : 1;		/*!< This is a flag to enable / disable allocating customized SEI buffer from DSP. */
+	u32 blend_stitch_type : 2;	/*!< Specify blend type for multi-channel stitching, @sa IAV_BLEND_TYPE */
+	u32 hevc_pjpeg_size_MB_per_tile : 4; /*!< Specify the DRAM size of HEVC and PJPEG encoding buffer. */
+	u32 prev_bottom_repeat_disabled : 1; /*!< Disable preview buffer bottom repeat. Tell DSP to not repeat
+										last line 8x times for the height alignment. This is ONLY used for
+										the canvas composite from multi-channel preview buffers. */
+	u32 vsync_loss_dummy_frame_enable : 1; /*!< When enabling this flag, DSP will use PM to cover the whole vysnc-loss channel. */
+	u32 reserved2 : 6;
+
+	struct iav_window raw_size;	/*!< The maximum resolution for raw data, which is used for allocating memory in DSP.
+								This is only used when enc_raw_rgb or enc_raw_yuv is enabled. */
+
+	u32 custom_sei_buf_size;	/*!< The buffer size of customized SEI. It is used for allocating memory in DSP.
+							Only valid when @b custom_sei is enabled. */
+	u16 custom_sei_buf_num;	/*!< The maximum number of customized SEI buffers can be requested
+								from DSP. Only valid when @b custom_sei is enabled. */
+	u16 enc_dummy_latency;		/*!< The latency of frame count before encode */
+	u32 reserved3[4];
+
+	struct iav_stream_resource stream[IAV_STREAM_MAX_NUM_ALL]; /*!< Stream Resource */
+	struct iav_chan_cfg chan_cfg[IAV_MAX_CHANNEL_NUM]; /*!< Channel configuration */
+	struct iav_canvas_cfg canvas_cfg[IAV_MAX_CANVAS_BUF_NUM]; /*!< Canvas configuration */
+	struct iav_img_scale_cfg img_scale_cfg;	/*!< img scale configuration */
+
+	/* Debug only */
+	u32 debug_enable_map;		/*!< This is a bit map to specify debug options. @sa iav_debug_type
+					     Bit 0: Enable / Disable debug stitch option
+					     Bit 1: Enable / Disable debug chip ID option
+					     Bit 2: Enable / Disable debug maximum chroma radius
+					     Bit 3: Enable / Disable debug skip macro block calculation for EFM streams
+					     Bit 4: Enable / Disable debug break point for ISP
+					     Bit 5: Set debug vp dram priority
+					     Bit 6: Set debug vsync loss timeout time
+					     Bit 7: Set debug hevc encode mode
+					     Bit 8: Enable / Disable debug dsp cmd */
+
+	u32 debug_stitched : 1;		/*!< This is a debug flag to specify the debug stitched option */
+	u32 debug_chip_id : 6;		/*!< This is a debug option to specify the debug chip ID */
+	u32 debug_max_chroma_radius : 2; /*!< This is a debug option to specify the maximum chroma radius, @sa iav_chroma_radius_num */
+	u32 debug_skip_efm_mb : 1;	/*!< This is a debug flag to specify the debug skip efm MB in total MB calculation */
+	u32 debug_break_point : 1;	/*!< This is a debug flag to specify IK debug point or not. 0: Disable, 1: Enable */
+	u32 debug_hevc_enc_mode : 3;	/*!< This is debug flag to specify HEVC encode mode. */
+	u32 debug_vp_dram_priority : 3;	/*!< This is a debug option to specify the DRAM R/W priority of VP.*/
+	u32 debug_vsync_loss_timeout : 12;	/*!< This is a debug option to specify the vsync loss timeout time(ms).*/
+	u32 debug_dump_dsp_cmd : 1;	/*!< This is a debug option to enable dump dsp default cmd queue for fastboot. 0: Disable, 1: Enable */
+	u32 reserved4 : 2;
+};
+/*! @} */  /* End of iav-ioctl-general-struct */
+
+/*! @addtogroup iav-ioctl-general-helper  */
+enum iav_chroma_radius_num {
+	CHROMA_RADIUS_32		= 0, /*!< 0 */
+	CHROMA_RADIUS_64		= 1, /*!< 1 */
+	CHROMA_RADIUS_128		= 2, /*!< 2 */
+	CHROMA_RADIUS_TOTAL_NUM,
+};
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_enc_mode_cap {
+	struct iav_window min_main;	/*!< The min resolution for main buffer */
+	struct iav_window max_main;	/*!< The max resolution for main buffer */
+	struct iav_window min_enc;	/*!< The min resolution for encoding */
+	u8 encode_mode;			/*!< Encode modes for different cases */
+	u8 max_streams_num;		/*!< Maximum supported stream number */
+	u8 max_chroma_radius : 2;	/*!< Maximum chroma radius, @sa iav_chroma_radius_num */
+	u8 max_wide_chroma_radius : 2;	/*!< Maximum wide chroma radius, @sa iav_chroma_radius_num */
+	u8 reserved0 : 4;
+	u8 reserved1;
+	u32 max_encode_MB;		/*!< The maximum encode macro blocks */
+	u32 raw_cap_possible : 1;	/*!< Possibility to enable raw picture capture */
+	u32 vout_swap_possible : 1;	/*!< Possibility to support swap VOUT function */
+	u32 lens_warp_possible : 1;	/*!< Possibility to support lens warp */
+	u32 iso_type_possible : 3;	/*!< Possibility of supported ISO types */
+	u32 enc_raw_rgb_possible : 1;	/*!< Possibility to support encode from raw CFA data input function. It's not available and it's for internal debug only. */
+	u32 high_mp_possible : 1;	/*!< Possibility to support high mega pixels encoding */
+	u32 linear_possible : 1;	/*!< Possibility to support sensor Linear mode */
+	u32 hdr_2x_possible : 2;	/*!< Possibility of support HDR 2X types */
+	u32 hdr_3x_possible : 2;	/*!< Possibility of support HDR 3X types */
+	u32 wcr_possible : 1;		/*!< Possibility to support wide chroma noise filter */
+	u32 me0_possible : 2;		/*!< Possibility to support ME0 scale factor */
+	u32 enc_from_mem_possible : 1;	/*!< Possibility to support encode from memory */
+	u32 enc_raw_yuv_possible : 1;	/*!< Possibility to support encode from raw YUV data input function. It's not available and it's for internal debug only. */
+	u32 ce_possible : 1;		/*!< Possibility to support CE function */
+	u32 stitch_hor_possible : 1;	/*!< Possibility to support horizontal stitching. */
+	u32 stitch_ver_possible : 1;	/*!< Possibility to support vertical stitching. */
+	u32 eis_delay_cnt_possible : 1;	/*!< Possibility to support eis delay. */
+	u32 dvr_possible : 1;		/*!< Possibility to support digital video recording. */
+	u32 vwarp_wait_lines_possible : 1;	/*!< Possibility to support vwarp wait lines. */
+	u32 multi_pass_possible : 1;	/*!< Possibility to support multiple scaler pass. */
+	u32 chan_rotate_possible : 1;	/*!< Possibility to support channel rotation and flip. */
+	u32 reserved_possible : 6;
+};
+
+struct iav_enc_buf_cap {
+	u8 buf_id;		 /*!< @sa iav_srcbuf_id */
+	u8 pass_id;		 /*!< Pass ID */
+	u8 reserved0[2];
+	struct iav_window max;			/*!< The maximum resolution of the buffer */
+	u16 max_zoom_in_factor;			/*!< Maximum supported zoom in factor */
+	u16 max_zoom_out_factor;		/*!< Maximum supported zoom out factor */
+	u16 max_stitch_zoom_out_factor;	/*!< Maximum supported zoom out factor for stitched case */
+	u16 reserved1;
+};
+
+struct iav_mem_info {
+	unsigned long addr;  /*!< Start address of memory partition */
+	unsigned long length;  /*!< Size of the memory partition. */
+	unsigned long offset;  /*!< Offset related to start address. */
+};
+/*! @} */  /* End of iav-ioctl-general-struct */
+
+/*! @addtogroup iav-ioctl-general-helper */
+enum iav_mem_part_id {
+	IAV_PART_DSP			= 0, /*!< 0, Partition ID for DSP partition */
+	IAV_PART_BSB			= 1, /*!< 1, Partition ID for bit stream partition */
+	IAV_PART_USR			= 2, /*!< 2, Partition ID for user data partition */
+	IAV_PART_MV			= 3, /*!< 3, Partition ID for motion vector partition */
+	IAV_PART_OVERLAY		= 4, /*!< 4, Partition ID for overlay partition */
+	IAV_PART_QPMATRIX		= 5, /*!< 5, Partition ID for QP ROI matrix partition */
+	IAV_PART_WARP			= 6, /*!< 6, Partition ID for warp vector partition */
+	IAV_PART_QUANT			= 7, /*!< 7, Partition ID for JPEG quant matrix table partition */
+	IAV_PART_IMG			= 8, /*!< 8, Partition ID for image partition */
+	IAV_PART_MASK			= 9, /*!< 9, Partition ID for IDSP PM partition */
+	IAV_PART_FB_DATA		= 10, /*!< 10, Partition ID for fast boot data partition */
+	IAV_PART_FB_AUDIO		= 11, /*!< 11, Partition ID for fast boot audio partition */
+	IAV_PART_INTRA_PB		= 12, /*!< 12, Partition ID for INTRA PB partition */
+	IAV_PART_STAT			= 13, /*!< 13, Partition ID for picture statistics */
+	IAV_PART_BLEND_ALPHA	= 14, /*!< 14, Partition ID for blend alpha buffer */
+	IAV_PART_BSH			= 15, /*!< 15, for internal use */
+	IAV_PART_DSP_DEF_CMD	= 16, /*!< 16, for internal use */
+	IAV_PART_DSP_UCODE		= 17, /*!< 17, Partition ID for UCODE partition */
+	IAV_PART_DSP_LOG		= 18, /*!< 18, for internal use */
+	IAV_PART_DSP_FIFO		= 19, /*!< 19, for internal use */
+	IAV_PART_DSP_RSV		= 20, /*!< 20, for internal use */
+	IAV_PART_IAV_RSV		= 21, /*!< 21, for internal use */
+	IAV_PART_PREALLOC		= 22, /*!< 22, for internal use */
+	IAV_PART_PREALLOC2		= 23, /*!< 23, for internal use */
+	IAV_PART_PYRAMID_POOL	= 24, /*!< 24, Partition ID for Pyramid buffer pool in Pyramid manual-feed mode or in decode mode */
+	IAV_PART_QPMATRIX_RAW	= 25, /*!< 25, Partition ID for QPMATRIX_RAW partition */
+	IAV_PART_NUM,	/*!< 26, total number of memory partition */
+	IAV_PART_FIRST			= IAV_PART_DSP, /*!< IAV_PART_DSP */
+	IAV_PART_LAST			= IAV_PART_NUM, /*!< IAV_PART_NUM */
+
+	IAV_PART_USR_CUSTOM_ID_FIRST	= 192, /*!< 192, First customer ID for user memory partition */
+	IAV_PART_USR_CUSTOM_ID_LAST		= 255, /*!< 255, Last customer ID for user memory partition */
+};
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_mem_part_info {
+	u32 pid; /*!< Memory partiton item ID, @sa iav_mem_part_id */
+	struct iav_mem_info mem; /*!< Memory partition description. */
+};
+
+struct iav_alloc_mem_part {
+	u32 pid;		 /*!< The IAV/DSP sub-partition ID to be allocated, @sa iav_mem_part_id.
+				      For anonymous memory partition allocation, pid is the output parameter
+				      and an unique ID that represents this allocated memory partition. */
+	u32 enable_cache : 1;	/*!< This flag enables or disables the cache when the memory partition is mapped to the user space.
+				      (@b Note: Currently, this flag is only valid for anonymous memory partitions.) */
+	u32 reserved0 : 31;
+	unsigned long length;	 /*!< As input: the mem part size to be allocated.
+				      As output: the real size of the allocated mem part. */
+	unsigned long offset;	 /*!< the physical address of the allocated mem part. */
+};
+
+struct iav_free_mem_part {
+	u32 pid;		/*!< The mem part to be freed, @sa iav_mem_part_id */
+};
+
+struct iav_feed_pyramid {
+	u8 chan_id;		/*!< Specifies the channel ID that needs to feed the pyramid buffer. */
+	u8 reserved0[3];
+};
+
+struct iav_mem_canvas_info {
+	u32 id_map; /*!< The canvas id map for the queried canvases' memory blocks. */
+	struct iav_mem_info yuv[IAV_MAX_CANVAS_BUF_NUM]; /*!< The memory partition information of YUV buffer. */
+	struct iav_mem_info me[IAV_MAX_CANVAS_BUF_NUM]; /*!< The memory partition information of ME buffer. */
+};
+/*! @} */  /* End of iav-ioctl-general-struct */
+
+/*! @addtogroup iav-ioctl-general-helper */
+enum iav_mem_id {
+	IAV_MEM_PARTITION	= 0x00, /*!< 0x00 */
+	IAV_MEM_CANVAS		= 0x01, /*!< 0x01 */
+	IAV_MEM_NUM			= 0x02, /*!< 0x02 */
+};
+
+/*! @addtogroup iav-ioctl-general-struct */
+struct iav_querymem {
+	enum iav_mem_id mid;  /*!< Query memory block item ID, @sa iav_mem_id */
+	union {
+		struct iav_mem_part_info partition;
+		struct iav_mem_canvas_info canvas;
+	} arg;
+};
+
+
+/*! @addtogroup iav-ioctl-general-helper */
+#define IAV_GDMA_MAX_WIDTH		(4096)
+
+/*! @addtogroup iav-ioctl-general-struct */
+struct iav_gdma_copy {
+	union {
+		unsigned long src_offset;	/*!< The offset of the source, based on the start address of its memory partition.
+						     Use this parameter is only when @b src_use_phys = 0 and @b src_mmap_type are set properly. */
+		unsigned long src_addr;	/*!< The physical address of the source. This parameter is used only when @b src_use_phys = 1. */
+	};
+	union {
+		unsigned long dst_offset;	/*!< The offset of the destination based on the memory partition start address.
+						     This parameter is used only when @b dst_use_phys = 0 and @b dst_mmap_type are set properly. */
+		unsigned long dst_addr;	/*!< The physical address of the destination. This parameter is used only when @b dst_use_phys = 1. */
+	};
+	u16 src_pitch;		/*!< Data pitch of the source */
+	u16 dst_pitch;		/*!< Data pitch of the destination */
+	u16 src_use_phys : 1;	/*!< A flag that determines whether @b src_addr or @b src_offset are used. */
+	u16 dst_use_phys : 1;	/*!< A flag that determines whether @b dst_addr or @b dst_offset are used. */
+	u16 reserved : 14;
+	u16 width;		/*!< The width of the memory copy region */
+	u32 height;		/*!< The height of the memory copy region */
+	u32 src_mmap_type;	/*!< The memory partition ID of the source */
+	u32 dst_mmap_type;	/*!< The memory partition ID of the destination */
+};
+
+/*! @addtogroup iav-ioctl-general-helper
+ *  @{
+ */
+enum iav_desc_id {
+	IAV_DESC_FRAME		= 0,	/*!< 0, Query frame info after encoding */
+	IAV_DESC_STATIS		= 1,	/*!< 1 */
+	IAV_DESC_RAW		= 2,	/*!< 2 */
+	IAV_DESC_SLICE		= 3,	/*!< 3 */
+	IAV_DESC_PRE_FRAME	= 4,	/*!< 4 */
+	IAV_DESC_PRE_COUNT	= 5,	/*!< 5 */
+	IAV_DESC_CANVAS		= 6,	/*!< 6 */
+	IAV_DESC_BLEND_YUV	= 7,	/*!< 7 */
+	IAV_DESC_PYRAMID	= 8,	/*!< 8 */
+	IAV_DESC_NUM		= 9,	/*!< 9 */
+	IAV_DESC_FIRST		= IAV_DESC_FRAME, /*!< IAV_DESC_FRAME */
+	IAV_DESC_LAST		= IAV_DESC_NUM, /*!< IAV_DESC_NUM */
+};
+
+enum iav_stream_type {
+	IAV_STREAM_TYPE_NONE	= 0x0, /*!< 0x0 */
+	IAV_STREAM_TYPE_H264	= 0x1, /*!< 0x1 */
+	IAV_STREAM_TYPE_MJPEG	= 0x2, /*!< 0x2 */
+	IAV_STREAM_TYPE_H265	= 0x3, /*!< 0x3 */
+	IAV_STREAM_TYPE_NUM		= 0x4, /*!< 0x4 */
+	IAV_STREAM_TYPE_INVALID	= 0xFF, /*!< 0xFF */
+};
+
+enum iav_pic_type {
+	IAV_PIC_TYPE_MJPEG_FRAME		= 0, /*!< 0 */
+	IAV_PIC_TYPE_IDR_FRAME			= 1, /*!< 1 */
+	IAV_PIC_TYPE_I_FRAME			= 2, /*!< 2 */
+	IAV_PIC_TYPE_P_FRAME			= 3, /*!< 3 */
+	IAV_PIC_TYPE_B_FRAME			= 4, /*!< 4 */
+	IAV_PIC_TYPE_P_FAST_SEEK_FRAME	= 5, /*!< 5 */
+	/* Value 6 is reseved for furture extension */
+	IAV_PIC_TYPE_END_FRAME			= 7, /*!< 7 */
+};
+
+enum iav_statis_type {
+	IAV_ENC_STATIS_MV		= 0x0, /*!< 0x0 */
+	IAV_ENC_STATIS_HEVC		= 0x1, /*!< 0x1 */
+	IAV_ENC_STATIS_AVC		= 0x2, /*!< 0x2 */
+	IAV_ENC_STATIS_NUM		= 0x3, /*!< 0x3 */
+	IAV_ENC_STATIS_FIRST	= IAV_ENC_STATIS_MV, /*!< IAV_ENC_STATIS_MV */
+	IAV_ENC_STATIS_LAST		= IAV_ENC_STATIS_NUM, /*!< IAV_ENC_STATIS_NUM */
+};
+/*! @} */  /* End of iav-ioctl-general-helper */
+
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_framedesc {
+	u32 id;				 /*!< Stream ID, -1 for read bits of all streams */
+	u32 time_ms;			 /*!< timeout in ms. -1 (0xFFFFFFFF) means non-blocking, 0 means blocking */
+	enum iav_stream_type stream_type; /*!< Stream type of the frame */
+	u32 pic_type		: 3;	 /*!< Picture type of the frame */
+	u32 stream_end		: 1;	 /*!< Flag for stream end */
+	u32 reserved1		: 4;
+	u32 jpeg_quality	: 8;	 /*!< Quality value for MJPEG. Valid range [0~100]. */
+	u32 bitrate_kbps	: 16;	 /*!< Real bitrate in kbps for H264 / H265 */
+	u32 frame_num;			 /*!< Frame number of the frame */
+	u32 session_id;			 /*!< Session ID of the stream for the frame */
+	u32 size;			 /*!< Coded bits size for the frame */
+	u32 slice_id : 8;		 /*!< Slice ID */
+	u32 slice_num : 8;		 /*!< Total slice number */
+	u32 tile_id : 2;		 /*!< Tile ID */
+	u32 tile_num : 2;		 /*!< Total tile number */
+	u32 is_ltr_frame : 1;		 /*!< Is long term reference frame or not */
+	u32 reserved2 : 11;
+	u64 arm_pts;			 /*!< System PTS for the frame */
+	u64 dsp_pts;			 /*!< DSP PTS for the frame */
+	u64 enc_done_ts;		 /*!< The encode done time stamp for the frame */
+	struct iav_window reso;		 /*!< Resolution of the encoded frame */
+	unsigned long data_addr_offset;	 /*!< Address offset for frame coded bits */
+	unsigned long mv_data_offset;	 /*!< Offset for MV data, @sa iav_mv */
+	u16 sliceheader_offset;
+	u16 reserved3;
+};
+
+struct iav_slicedesc {
+	u32 id;				/*!< Stream ID, -1 for read bits of all streams */
+	u32 time_ms;			/*!< timeout in ms; -1 (0xFFFFFFFF) means non-blocking, 0 means blocking */
+	enum iav_stream_type stream_type;/*!< Stream type of the frame */
+	u32 pic_type		: 3;	/*!< Picture type of the frame */
+	u32 stream_end		: 1;	/*!< Flag for stream end */
+	u32 reserved1		: 4;
+	u32 jpeg_quality	: 8;	/*!< Quality value for MJPEG. Valid range [0~100]. */
+	u32 bitrate_kbps	: 16;	/*!< Real bitrate in kbps for H264 / H265 */
+	u32 frame_num;			/*!< Frame number of the frame */
+	u32 session_id;			/*!< Session ID of the stream for the frame */
+	u64 arm_pts;			/*!< System PTS for the frame */
+	u64 dsp_pts;			/*!< DSP PTS for the frame */
+	u64 enc_done_ts;		/*!< The encode done timestamp for the frame */
+	struct iav_window reso;		/*!< Resolution of the encoded frame */
+	u32 slice_id : 4;		/*!< Slice ID */
+	u32 slice_num : 4;		/*!< Total slice number */
+	u32 tile_id : 2;		/*!< Tile ID */
+	u32 tile_num : 2;		/*!< Total tile number */
+	u32 reserved2 : 20;
+	u32 size[IAV_HEVC_TILE_NUM];	/*!< Coded bits size for the slice */
+	unsigned long data_addr_offset[IAV_HEVC_TILE_NUM]; /*!< Address offset for slice coded bits */
+};
+
+/* mv descriptor reported by DSP */
+struct iav_mv {
+	s32 x : 15;	/*!< Bit [14:0] is the x component in signed 15-bit format. */
+	s32 y : 12;	/*!< Bit [26:15] is the y component in signed 12-bit format. */
+	s32 reserved : 5;
+};
+
+struct iav_statisdesc {
+	u32 id;		/*!< Stream ID, -1 for read bits of all streams */
+	u32 time_ms;	/*!< timeout in ms; -1 (0xFFFFFFFF) means non-blocking, 0 means blocking */
+	u32 width;	/*!< Width offset for frame */
+	u32 height;	/*!< Height offset for frame */
+	u32 pitch;	/*!< Pitch offset for frame */
+	u32 dsp_pts;	/*!< DSP PTS for the frame */
+	u64 arm_pts;	/*!< ARM PTS for the frame */
+	u32 frame_num;	/*!< Frame number of the frame */
+	u32 session_id;	/*!< Session ID */
+	u32 size;	/*!< Unit size of the frame MV dump data */
+	enum iav_statis_type statis_type; /*!< Statis type */
+	unsigned long data_addr_offset; /*!< Address offset for frame statistic data */
+};
+
+struct iav_pre_framedesc {
+	u16 stream_id : 8;	/*!< Stream ID, -1 for read bits of all streams */
+	u16 pic_type : 3;	/*!< Frame type as I, P, B */
+	u16 is_ltr : 1;		/*!< Long term reference P frame flag */
+	u16 reserved : 4;
+	u16 y_pitch;		/*!< YUV data pitch */
+	u16 me1_pitch;		/*!< ME1 data Pitch */
+	u16 me0_pitch;		/*!< ME0 data Pitch */
+	u64 frame_no;		/*!< Frame number */
+	unsigned long y_addr_offset; /*!< Y data offset */
+	unsigned long uv_addr_offset;/*!< UV data offset */
+	unsigned long me1_addr_offset; /*!< ME1 data offset */
+	unsigned long me0_addr_offset; /*!< ME0 data offset */
+};
+
+struct iav_pre_countdesc {
+	u32 non_block_flag : 1;	/*!< Query without block flag */
+	u32 reserved : 31;
+	u8 stream_cap_count[IAV_STREAM_MAX_NUM_ALL]; /*!< Frame information count for every stream */
+};
+/*! @} */  /* End of iav-ioctl-general-struct */
+
+
+/*! @addtogroup iav-ioctl-general-helper */
+enum IAV_BUFCAP_FLAG {
+	IAV_BUFCAP_NONBLOCK	= (1 << 0), /*!< 1 << 0 */
+};
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_rawbufdesc {
+	u32 width;		/*!< Width of the raw picture */
+	u32 height;		/*!< Height of the raw picture */
+	u32 pitch;		/*!< Pitch size of the raw picture */
+	u32 non_block_flag : 1;	/*!< Block read flag of the raw picture */
+	u32 reserved1 : 23;
+	u32 vin_id : 8;		/*!< VIN controller ID */
+	u64 mono_pts;		/*!< Monotonic PTS of the raw picture */
+	unsigned long raw_addr_offset; /*!< Address offset for frame raw picture */
+	u32 dsp_pts;		/*!< DSP PTS of the raw picture */
+};
+
+struct iav_yuv_cap {
+	u32 width;	/*!< Width of the YUV data */
+	u32 height;	/*!< Height of the YUV data */
+	u32 pitch;	/*!< Pitch size of the YUV data */
+	u32 seq_num;	/*!< Sequence number of the YUV data */
+	u32 format;	/*!< Format of the YUV data */
+	u32 dsp_pts;	/*!< Intermediate PTS from DSP */
+	u64 mono_pts;	/*!< Monotonic PTS of the YUV data */
+	unsigned long y_addr_offset; /*!< Address offset for frame Y data */
+	unsigned long uv_addr_offset;/*!< Address offset for frame UV data */
+};
+
+struct iav_me_cap {
+	u32 width;	/*!< Width of the frame ME data */
+	u32 height;	/*!< Height of the frame ME data */
+	u32 pitch;	/*!< Pitch size of the frame ME data */
+	u32 seq_num;	/*!< Sequence number of the frame ME data */
+	u32 dsp_pts;	/*!< Intermediate PTS from DSP */
+	u64 mono_pts;	/*!< Monotonic PTS of the frame ME data */
+	unsigned long data_addr_offset; /*!< Address offset for frame ME data */
+};
+
+struct iav_canvasdesc {
+	u32 non_block_flag : 1;	/*!< Block flag */
+	u32 canvas_id : 8;	/*!< Canvas ID */
+	u32 reserved : 23;
+	struct iav_yuv_cap yuv; /*!< YUV description item */
+	struct iav_me_cap me1;	/*!< ME1 YUV description item */
+	struct iav_me_cap me0;	/*!< ME0 description item */
+};
+
+struct iav_blenddesc {
+	u32 non_block_flag : 1; /*!< Block read flag of the blend description */
+	u32 reserved : 31;
+	struct iav_yuv_cap yuv[IAV_BLEND_OVERLAP_AREA_MAX][IAV_BLEND_NUM]; /*!< YUV buffer information of overlapped areas */
+};
+/*! @} */  /* End of iav-ioctl-general-struct */
+
+/*! @addtogroup iav-ioctl-general-helper
+ *  @{
+ */
+#define AVC_HIST_X				(16)
+
+#define HEVC_MV_HIST_X			(2)
+#define HEVC_MV_HIST_Y			(2)
+#define HEVC_MV_HIST_K			(128)
+#define HEVC_QP_HIST_X			(64)
+#define HEVC_INTER_CNT_U8_X		(5)
+#define HEVC_INTER_CNT_U16_X	(3)
+#define HEVC_INTER_CNT_U32_X	(3)
+/*! @} */  /* End of iav-ioctl-general-helper */
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_pic_stats_avc {
+	/* h264_xfHisto_t */
+	u32 rsvd[16];
+	u16 xfMbCatHisto[AVC_HIST_X];	/*!< Macro blocks number with corresponding QP value */
+	u32 rsvd1;
+
+	/* Nom QP Table */
+	u8 qp[AVC_HIST_X];	/*!< QP values used in one encoded frame*/
+	u32 reserved[1059];
+
+};
+
+struct iav_pic_stats_hevc {
+	u32 mv_histogram[HEVC_MV_HIST_X][HEVC_MV_HIST_Y][HEVC_MV_HIST_K];         // [L0/L1][x/y][abs_mv at CU8 granularity]
+	u32 reserved_0[30];
+	u32 qp_histogram[HEVC_QP_HIST_X];                // [QP value at CU8 granularity]
+	u32 intra_counter_pu4;
+	u32 intra_counter_pu8;
+	u32 intra_counter_pu16;
+	u32 intra_counter_pu32;
+	u32 inter_counter_cu8[HEVC_INTER_CNT_U8_X];           // indexed by (skip/tu4_merge/tu4_mvp/tu8_merge/tu8_mvp)
+	u32 inter_counter_cu16[HEVC_INTER_CNT_U16_X];           // indexed by (skip/merge/mvp)
+	u32 inter_counter_cu32[HEVC_INTER_CNT_U32_X];           // indexed by (skip/merge/mvp)
+	u32 pcm_counter_cu32;
+	u32 reserved_1[466];
+};
+
+struct iav_pyramiddesc {
+	u32 chan_id : 8;	/*!< Channel ID */
+	u32 non_block_flag : 1;	/*!< Block read flag of the pyramid description */
+	u32 layers_map : 6;	/*!< Layer bit map. Each bit stands for one layer. 1 means enable this layer, 0 means disable this layer. */
+	u32 reserved : 17;
+	struct iav_yuv_cap layers[IAV_MAX_PYRAMID_LAYERS]; /*!< YUV buffer information of enabled pyramid layers */
+	u64 seq_num;		/*!< The sequence number of current pyramid description */
+};
+
+struct iav_querydesc {
+	enum iav_desc_id qid;	/*!< query desc id */
+	union {
+		struct iav_framedesc frame;
+		struct iav_statisdesc statis;
+		struct iav_rawbufdesc raw;
+		struct iav_canvasdesc canvas;
+		struct iav_slicedesc slice;
+		struct iav_pre_framedesc pre_frame;
+		struct iav_pre_countdesc pre_count;
+		struct iav_blenddesc blend;
+		struct iav_pyramiddesc pyramid;
+	} arg;
+};
+/*! @} */  /* End of iav-ioctl-general-struct */
+
+/*! @addtogroup iav-ioctl-general-helper
+ *  @{
+ */
+enum iav_stream_op {
+	IAV_STREAM_OP_STOP	= 0, /*!< 0 */
+	IAV_STREAM_OP_START	= 1, /*!< 1 */
+};
+
+enum iav_chroma_format {
+	H264_CHROMA_YUV420	= 0, /*!< 0 */
+	H264_CHROMA_MONO	= 1, /*!< 1 */
+
+	JPEG_CHROMA_MONO	= 0, /*!< 0 */
+	JPEG_CHROMA_YUV420	= 1, /*!< 1 */
+	JPEG_CHROMA_YUV422	= 2, /*!< 2 */
+};
+/*! @} */  /* End of iav-ioctl-general-helper */
+
+/*! @addtogroup iav-ioctl-general-struct */
+struct iav_stream_fps {
+	u32 fps_multi;		/*!< Multiple value for fps configuration */
+	u32 fps_div;		/*!< Divisor value for fps configuration */
+	u32 abs_fps : 8;	/*!< Absolute frame rate value. Only valid when @b abs_fps_enable is set. */
+	u32 abs_fps_enable : 1;	/*!< Flag to enable / disable abs FPS */
+	u32 is_update_frame_rate_to_next_GOP: 1;	/*!< Flag to update frame rate to next GOP. */
+	u32 reserved : 22;
+};
+
+/*! @addtogroup iav-ioctl-general-helper */
+#define UNUSED_DURATION_NUM (1)
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_stream_format {
+	enum iav_stream_type type;/*!< @sa iav_stream_type */
+	struct iav_rect enc_win;/*!< Encode window from source buffer */
+	u32 duration : 16;	/*!< Encode duration (in frames) for the stream */
+	u32 enc_src_id : 8;	/*!< Encode source canvas id, 0~10: Canvas 0~10, 16: EFM */
+	u32 hflip : 1;		/*!< Stream horizontal flip flag. 0: No horizontal flip; 1: Horizontal flip */
+	u32 vflip : 1;		/*!< Stream vertical  flip flag. 0: No vertical flip; 1: Vertical flip */
+	u32 rotate_cw : 1;	/*!< Stream clockwise 90 rotation flag.
+						0: No clockwise rotation of 90; 1: Clockwise rotation of 90. */
+	u32 reserved : 5;
+	u32 efm_customize_fps;	/*!< Specify the arbitrary frame rate for EFM stream */
+};
+
+struct iav_fps_suggest {
+	u32 fps_keep_map;	/*!< Bit map for stream fps keep or not: 1: Keep; 0: Not keep */
+	u32 stream_exclude_map;	/*!< Bit map for stream exclusion: 1: Exclude; 0: Not exclude */
+	u32 stream_fps_suggest[IAV_STREAM_MAX_NUM_ALL]; /*!< Stream FPS suggest result in 16.16 Format */
+	u32 vin_target_fps[VIN_INSTANCES]; /*!< VIN target fps in 16.16 Format */
+};
+/*! @} */  /* End of iav-ioctl-general-struct */
+
+/*! @addtogroup iav-ioctl-general-helper */
+enum GOP_IDR_INTV {
+	MIN_IDR_INTV	= 1, /*!< 1 */
+	MAX_IDR_INTV	= 128, /*!< 128 */
+};
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_h26x_gop {
+	u32 id;		/*!< Related stream id. */
+	u32 N;		/*!< GOP length. */
+	u32 idr_interval;	/*!< GOP number between two idr.*/
+	u32 is_update_N_to_next_GOP;	/*!< Flag to GOP length update mode. 0: Update immediately. 1: Update at next gop. */
+};
+
+struct iav_bitrate {
+	u32 id;			/*!< Stream ID */
+	u32 average_bitrate;	/*!< The target average bitrate */
+	u32 vbr_setting : 8;	/*!< 1: IAV_BRC_CBR (obsolete); 2: IAV_BRC_PCBR (obsolete); 3: IAV_BRC_VBR (obsolete);
+				     4: IAV_BRC_SCBR; 5: IAV_BRC_SVBR (obsolete). This field must always be set to IAV_BRC_SCBR (Smart Constant Bitrate Control). */
+	u32 qp_min_on_I : 8;	/*!< This field specifies the minimum QP allowed for I picture. The valid range is 0 to 51 (inclusive).
+				     The default value is 1. */
+	u32 qp_max_on_I : 8;	/*!< This field specifies the maximum QP allowed for I picture. The valid range is 0 to 51 (inclusive).
+				     The default value is 51. */
+	u32 qp_min_on_P : 8;	/*!< This field specifies the minimum QP allowed for P picture. The valid range is 0 to 51 (inclusive).
+				     The default value is 1. */
+	u32 qp_max_on_P : 8;	/*!< This field specifies the maximum QP allowed for P picture. The valid range is 0 to 51 (inclusive).
+				     The default value is 51. */
+	u32 qp_min_on_B : 8;	/*!< This field specifies the minimum QP allowed for B picture. Not supported yet. */
+	u32 qp_max_on_B : 8;	/*!< This field specifies the maximum QP allowed for B picture. Not supported yet. */
+	u32 i_qp_reduce : 8;	/*!< This field specifies how much better to make I QP relative to P QP. To increase the ratio of I QP/ P QP,
+				     use a small value. To reduce the ratio of I QP/ P QP, use a large value. The valid range is 1 to 10 (inclusive).
+				     The default value is 1. */
+	u32 p_qp_reduce : 8;	/*!< This field specifies how much better to make P QP relative to B QP. To increase the ratio of P QP/ B QP,
+				     use a small value. To reduce the ratio of P QP/ B QP, use a large value. The valid range is 1 to 5 (inclusive).
+				     The default value is 1. */
+	u32 adapt_qp : 8;	/*!< This field specifies the strength of adaptive quantization. The valid range is 0 to 4 (inclusive).
+				     The default value is 0. */
+	u32 skip_flag : 8;	/*!< When smart RC is used (bitrate_control = 4), this field specifies the criteria for RC to skip frames.(Bitwise OR)
+				     Bit 0:  RC will skip the frame based on the size of the compressed picture.
+				     Bit 1:  RC will skip the frame based on CPB size.
+				     Bit 2:  RC will skip the frame when the target bit rate is to be exceeded and the maximum QP is reached.
+				     The default value is 0 (no frame skipping). */
+	u32 q_qp_reduce : 8;	/*!< Relative to P frame */
+	u32 qp_max_on_Q : 8;	/*!< Maximum QP allowed for Q frame */
+	u32 qp_min_on_Q : 8;	/*!< Minimum QP allowed for Q frame */
+	u32 log_q_num_minus_1 : 3; /*!< 128 */
+	u32 skip_flag_mode : 1; /*!< skip mode flag. 0: handle skip frame through drop frame. 1: through repeat frame.*/
+	u32 reserved0 : 12;
+	u32 max_i_size_KB;	/*!< Maximum I frame size */
+	u32 qp_min_on_C : 8;	/*!< This field specifies the minimum QP allowed for C picture. The valid range is 0 to 51 (inclusive).
+				     The default value is 1. */
+	u32 qp_max_on_C : 8;	/*!< This field specifies the maximum QP allowed for C picture. The valid range is 0 to 51 (inclusive).
+				     The default value is 51. */
+	u32 qp_min_on_D : 8;	/*!< This field specifies the minimum QP allowed for D picture. The valid range is 0 to 51 (inclusive).
+				     The default value is 1. */
+	u32 qp_max_on_D : 8;	/*!< This field specifies the maximum QP allowed for D picture. The valid range is 0 to 51 (inclusive).
+				     The default value is 51. */
+	u32 b_qp_reduce : 8;	/*!< This field specifies how much better to make b QP relative to B QP. To increase the ratio of b QP/ P-QP,
+				     use a small value. To reduce the ratio of B QP/ P QP, use a large value. The valid range is 1 to 10 (inclusive).
+				     The default value is 1. */
+	u32 c_qp_reduce : 8;	/*!< This field specifies how much better to make c QP relative to B QP. To increase the ratio of b QP/ P-QP,
+				     use a small value. To reduce the ratio of C QP/ P QP, use a large value. The valid range is 1 to 10 (inclusive).
+				     The default value is 1. */
+	u32 svbr_ness : 10;	/*!< obsolete */
+	u32 cbr_stable_br_adjust : 4; /*!< Not used yet */
+	u32 reserved1 : 2;
+	u32 vbr_min_bitrate;	/*!< obsolete */
+	u32 vbr_max_bitrate;	/*!< obsolete */
+};
+
+struct iav_h26x_weighted_pred {
+	u16 wp_enable;			/*!< Enable Weighted Prediction */
+	u16 luma_log2_weight_denom;	/*!< Specify luma-log2-wegiht-denom */
+	s16 luma_weight[2];		/*!< Set luma-weight[0]/luma-weight[1] */
+	s16 luma_offset[2];		/*!< Set luma-offset[0]/luma-offset[1] */
+};
+
+struct iav_custom_sei {
+	u16 enable : 1;			/*!< Enable customized SEI */
+	u16 repeat : 1;			/*!< Repeat customized SEI in latter encoded frames */
+	u16 reserved : 14;
+	u16 frame_idx;			/*!< Frame index of customized SEI buffer that will be fed to DSP */
+	u32 size;				/*!< Real size of customized SEI data */
+};
+
+struct iav_rc_strategy {
+	u32 abs_br_flag : 1; /*!< Flag for abs_br */
+	u32 reserved : 31;
+};
+/*! @} */  /* End of iav-ioctl-general-struct */
+
+/*! @addtogroup iav-ioctl-general-helper
+ *  @{
+ */
+typedef enum {
+	QP_FRAME_I			= 0, /*!< 0 */
+	QP_FRAME_P			= 1, /*!< 1 */
+	QP_FRAME_B			= 2, /*!< 2 */
+	QP_FRAME_TYPE_NUM	= 3, /*!< 3 */
+} QP_FRAME_TYPES;
+
+typedef enum {
+	QPROI_TYPE_CATEGORY		= 0, /*!< 0 */
+	QPROI_TYPE_QP_OFFSET	= 1, /*!< 1 */
+} QPROI_TYPE;
+
+#define MD_CAT_MAX_NUM (8)
+
+typedef enum {
+    MD_CAT_LUT_TYPE_DEFAULT			= 0, /*!< 0, For this CTB, it's coded as default option from DSP internal RC. */
+    MD_CAT_LUT_TYPE_FORCED_ZMV		= 1, /*!< 1, For this CTB, it's forced to code with Zero Motion Vector (ZMV). */
+    MD_CAT_LUT_TYPE_FORCED_INTRA	= 2, /*!< 2, For this CTB, it's forced to code as intra. */
+    MD_CAT_LUT_TYPE_UNCOVERED_AREA	= 3, /*!< 3, For this CTB, it's detected to be uncovered and is not expected to
+    											get good prediction from any of its references. It will be coded as intra.
+    											In conjunction, ARM should config a negative QP adjust value for these
+    											CTBs so that they are coded as high quality. */
+    MD_CAT_LUT_TYPE_BIAS_SKIP		= 4, /*!< 4, For this CTB, it's bias heavily towards skipped. */
+    /* more to come */
+    MD_CAT_LUT_NUM					= 5, /*!< 5 */
+    MD_CAT_LUT_FIRST				= MD_CAT_LUT_TYPE_DEFAULT, /*!< MD_CAT_LUT_TYPE_DEFAULT */
+    MD_CAT_LUT_LAST					= MD_CAT_LUT_NUM, /*!< MD_CAT_LUT_NUM */
+} MD_CAT_LUT_TYPE;
+/*! @} */  /* End of iav-ioctl-general-helper */
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_h264_qproi_data {
+	u8 category;		/*!< Macroblock level control for user_class */
+	s8 qp_adjust;		/*!< Macroblock level control for qp_offset. The qp_offset is added onto
+				     the existing QP already calculated by RC and User class bin. The final
+				     QP from RC + qp_offset is then used for this MB. */
+	u8 zmv_threshold_val;	/*!< Macroblock level control of threshold for zero MV. If MB's sum of Mvs
+				     is less than this value, skip mode is encouraged. Value 8 can be used
+				     for low bit rate at good lighting. Value 24 can be used for low bit
+				     rate at low lighting (high noise). */
+	u8 force_zmv_ref0 : 1;	/*!< Macroblock level control to force zmv on reference candidate 0. When
+				     this flag is on, force zero MV will be adopted for the target MB, if
+				     reference 0 is used. */
+	u8 force_zmv_ref1 : 1;	/*!< Macroblock level control to force zmv on reference candidate 1. When
+				     this flag is on, force zero MV will be adopted for the target MB, if
+				     reference 1 is used. */
+	u8 reserved : 6;
+};
+
+struct iav_h265_qproi_data {
+	union {
+		struct {
+			u32 cu16_0 : 3;	/*!< Select md_category for 16x16 CU[0]. 0: default; 1: used as force zmv flag. */
+			u32 cu16_1 : 3;	/*!< Select md_category for 16x16 CU[1]. 0: default; 1: used as force zmv flag. */
+			u32 cu16_2 : 3;	/*!< Select md_category for 16x16 CU[2]. 0: default; 1: used as force zmv flag. */
+			u32 cu16_3 : 3;	/*!< Select md_category for 16x16 CU[3]. 0: default; 1: used as force zmv flag. */
+			u32 cu32   : 3;	/*!< Select md_category for 32x32 CU. 0: default; 1: used as force zmv flag. */
+			u32 reserved_0 : 17;
+		};
+		u32 dword1;
+	} category;
+	union {
+		struct {
+			s32 reserved_1 : 8;
+			s32 cu32 : 7; /*!< qp_adjust value for 32x32 CU. Valid range of -51 to 51 inclusive. */
+			s32 reserved_2 : 17;
+		};
+		u32 dword2;
+	} qp_adjust_32;
+	union {
+		struct {
+			s32 cu16_0 : 7; /*!< qp_adjust value for 16x16 CU[0]. Valid range of -51 to 51 inclusive. */
+			s32 reserved_3 : 1;
+			s32 cu16_1 : 7; /*!< qp_adjust value for 16x16 CU[1]. Valid range of -51 to 51 inclusive. */
+			s32 reserved_4 : 1;
+			s32 cu16_2 : 7; /*!< qp_adjust value for 16x16 CU[2]. Valid range of -51 to 51 inclusive. */
+			s32 reserved_5 : 1;
+			s32 cu16_3 : 7; /*!< qp_adjust value for 16x16 CU[3]. Valid range of -51 to 51 inclusive. */
+			s32 reserved_6 : 1;
+		};
+		u32 dword3;
+	} qp_adjust_16;
+};
+
+struct iav_qpmatrix {
+	u32 id;			/*!< Stream ID */
+	u32 enable : 1;		/*!< whether qp matrix is enabled */
+	u32 qpm_no_update : 1;	/*!< 1: No need from app to set the QP matrix data to IAV/DSP, just configure some other parameters.
+				     0: App needs to set the QP matrix data (already configured at app side) to IAV/DSP. */
+	u32 qpm_no_check : 1;	/*!< 1: No need for IAV to check the QP matrix data to IAV/DSP, app already guarantees the validness
+					for the qp matrix data.
+				     0: IAV needs to check the QP matrix data (already configured at app side) to IAV/DSP. */
+	u32 init_qpm : 1;	/*!< Init QP matrix flag to set OP */
+	u32 qpm_raw : 1;	/*!< QP matrix raw mapped flag for get/set op */
+	u32 reserved0 : 27;
+	u32 data_size;		/*!< The size for the QP ROI matrix */
+	u32 reserved1;
+	unsigned long data_offset; /*!< The address offset for the QP ROI. The structure @sa iav_h264_qproi_data
+							or @sa iav_h265_qproi_data shows the data format. */
+};
+
+struct iav_h26x_enc_param {
+	u32 id;
+	u16 user1_intra_bias;
+	u16 user1_direct_bias;
+	u16 user2_intra_bias;
+	u16 user2_direct_bias;
+};
+/*! @} */  /* End of iav-ioctl-general-stuct */
+
+/*! @addtogroup iav-ioctl-general-helper */
+enum {
+	IAV_ONE_BITS_INFO_PER_TILE	= 0,   /*!< 0 */
+	IAV_ONE_BITS_INFO_PER_FRAME	= 255, /*!< 255 */
+};
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_h26x_slice {
+	u32 slice_num : 8; 	/*!< Specify HEVC slice row number, from 0~255. For HEVC only */
+	u32 slices_per_info : 8;/*!< Specify HEVC slices per bits information. For HEVC only */
+	u32 reserved : 16;
+};
+
+struct iav_h26x_pskip {
+	u32 repeat_enable : 1;	/*!< Enable repeat P-skip frame pattern */
+	u32 reserved1 : 15;
+	u32 repeat_num : 8;	/*!< Specify the skipped frame number to repeat */
+	u32 reserved2 : 8;
+};
+
+struct iav_h26x_drop_frame {
+	u32 repeat_enable : 1;	/*!< Enable repeat drop frame pattern */
+	u32 reserved1 : 15;
+	u32 drop_num : 8;	/*!< Specify the dropped frame number to repeat */
+	u32 reserved2 : 8;
+};
+
+struct iav_h26x_sar {
+	u16 sar_width;	/*!< Specify customized SAR width */
+	u16 sar_height;	/*!< Specify customized SAR height */
+};
+/*! @} */  /* End of iav-ioctl-general-stuct */
+
+/*! @addtogroup iav-ioctl-general-helper
+ *  @{
+ */
+enum iav_streamcfg_id {
+	/* Stream config for H264 & H265 & MJPEG (0x0000 ~ 0x0FFF) */
+	IAV_STMCFG_FORMAT				= 0x0000, /*!< 0x0000, Stream config for H264 & H265 & MJPEG (0x0000 ~ 0x0FFF) */
+	IAV_STMCFG_FPS					= 0x0001, /*!< 0x0001 */
+	IAV_STMCFG_OFFSET 				= 0x0002, /*!< 0x0002 */
+	IAV_STMCFG_CHROMA				= 0x0003, /*!< 0x0003 */
+	IAV_STMCFG_DUMMY_LATENCY		= 0x0004, /*!< 0x0004 */
+	IAV_STMCFG_CUSTOM_SEI 			= 0x0005, /*!< 0x0005 */
+	IAV_STMCFG_NUM					= 0x0006, /*!< 0x0006 */
+	IAV_STMCFG_FIRST				= IAV_STMCFG_FPS, /*!< IAV_STMCFG_FPS */
+	IAV_STMCFG_LAST					= IAV_STMCFG_NUM, /*!< IAV_STMCFG_NUM */
+
+	/* H264 config (0x1000 ~ 0x1FFF) */
+	IAV_H264_CFG_GOP			= 0x1000, /*!< 0x1000, H264 config (0x1000 ~ 0x1FFF) */
+	IAV_H264_CFG_BITRATE			= 0x1001, /*!< 0x1001 */
+	IAV_H264_CFG_FORCE_IDR			= 0x1002, /*!< 0x1002 */
+	IAV_H264_CFG_QP_LIMIT			= 0x1003, /*!< 0x1003 */
+	IAV_H264_CFG_ENC_PARAM			= 0x1004, /*!< 0x1004 */
+	IAV_H264_CFG_QP_ROI			= 0x1005, /*!< 0x1005 */
+	IAV_H264_CFG_ZMV_THRESHOLD		= 0x1006, /*!< 0x1006 */
+	IAV_H264_CFG_FORCE_FAST_SEEK		= 0x1007, /*!< 0x1007 */
+	IAV_H264_CFG_FRAME_DROP			= 0x1008, /*!< 0x1008 */
+	IAV_H264_CFG_RC_STRATEGY		= 0x1009, /*!< 0x1009 */
+	IAV_H264_CFG_SLICE			= 0x100A, /*!< 0x100A */
+	IAV_H264_CFG_STATIS			= 0x100B, /*!< 0x100B */
+	IAV_H264_CFG_FORCE_PSKIP		= 0x100C, /*!< 0x100C */
+	IAV_H264_CFG_SAR			= 0x100D, /*!< 0x100D */
+	IAV_H264_CFG_WEIGHTED_PRED		= 0x100E, /*!< 0x100E */
+	IAV_H264_CFG_FAST_SEEK_INTERVAL	= 0x100F, /*!< 0x100F */
+	IAV_H264_CFG_NUM			= 0x1010, /*!< 0x1010 */
+	IAV_H264_CFG_FIRST			= IAV_H264_CFG_GOP, /*!< IAV_H264_CFG_GOP */
+	IAV_H264_CFG_LAST			= IAV_H264_CFG_NUM, /*!< IAV_H264_CFG_NUM */
+
+	/* MJPEG config (0x2000 ~ 0x2FFF) */
+	IAV_MJPEG_CFG_QUALITY				= 0x2000, /*!< 0x2000, MJPEG config (0x2000 ~ 0x2FFF) */
+	IAV_MJPEG_CFG_NUM				= 0x2001, /*!< 0x2001 */
+	IAV_MJPEG_CFG_FIRST				= IAV_MJPEG_CFG_QUALITY, /*!< IAV_MJPEG_CFG_QUALITY */
+	IAV_MJPEG_CFG_LAST				= IAV_MJPEG_CFG_NUM, /*!< IAV_MJPEG_CFG_NUM */
+
+	/* H265 config (0x3000 ~ 0x3FFF) */
+	IAV_H265_CFG_GOP			= 0x3000, /*!< 0x3000, H265 config (0x3000 ~ 0x3FFF) */
+	IAV_H265_CFG_BITRATE			= 0x3001, /*!< 0x3001 */
+	IAV_H265_CFG_FORCE_IDR			= 0x3002, /*!< 0x3002 */
+	IAV_H265_CFG_QP_LIMIT			= 0x3003, /*!< 0x3003 */
+	IAV_H265_CFG_ENC_PARAM			= 0x3004, /*!< 0x3004 */
+	IAV_H265_CFG_QP_ROI			= 0x3005, /*!< 0x3005 */
+	IAV_H265_CFG_ZMV_THRESHOLD		= 0x3006, /*!< 0x3006 */
+	IAV_H265_CFG_FORCE_FAST_SEEK		= 0x3007, /*!< 0x3007 */
+	IAV_H265_CFG_FRAME_DROP			= 0x3008, /*!< 0x3008 */
+	IAV_H265_CFG_RC_STRATEGY		= 0x3009, /*!< 0x3009 */
+	IAV_H265_CFG_SLICE			= 0x300A, /*!< 0x300A */
+	IAV_H265_CFG_MD_CAT_LUT			= 0x300B, /*!< 0x300B */
+	IAV_H265_CFG_FORCE_PSKIP		= 0x300C, /*!< 0x300C */
+	IAV_H265_CFG_SAR			= 0x300D, /*!< 0x300D */
+	IAV_H265_CFG_WEIGHTED_PRED		= 0x300E, /*!< 0x300E */
+	IAV_H265_CFG_FAST_SEEK_INTERVAL	= 0x300F, /*!< 0x300F */
+	IAV_H265_CFG_NUM			= 0x3010, /*!< 0x3010 */
+	IAV_H265_CFG_FIRST			= IAV_H265_CFG_GOP, /*!< IAV_H265_CFG_GOP */
+	IAV_H265_CFG_LAST			= IAV_H265_CFG_NUM, /*!< IAV_H265_CFG_NUM */
+};
+
+enum roi_cat_type {
+	ROI_CAT_MIN	= 0, /*!< 0 */
+	ROI_CAT_MAX	= 7, /*!< 7 */
+};
+/*! @} */  /* End of iav-ioctl-general-helper */
+
+/*! @addtogroup iav-ioctl-general-struct */
+struct iav_stream_cfg {
+	u32 id; /*!< Stream ID */
+	enum iav_streamcfg_id cid; /*!< Stream configured ID, @sa iav_streamcfg_id */
+	union {
+		struct iav_stream_format format;
+		struct iav_stream_fps fps;
+		struct iav_offset enc_offset;
+		enum iav_chroma_format chroma;
+		u32 stream_dummy_latency; 	/*!< Stream dummy latency */
+		u32 mv_threshold; 		/*!< MV threshold for bitrate control */
+		struct iav_custom_sei custom_sei;
+
+		struct iav_h26x_gop h264_gop;
+		struct iav_bitrate h264_rc;
+		struct iav_rc_strategy h264_rc_strategy;
+		struct iav_qpmatrix h264_roi;
+		struct iav_h26x_enc_param h264_enc;
+		struct iav_h26x_slice h264_slice;
+		struct iav_h26x_pskip h264_pskip;
+		struct iav_h26x_drop_frame h264_drop_frame;
+		int h264_force_idr;		/*!< Flag for force IDR */
+		u32 h264_force_fast_seek;	/*!< Flag for force fast seek frame insertion */
+		u32 h264_fast_seek_interval;	/*!< Flag for fast seek interval */
+		u32 h264_statis;		/*!< H.264 MV dump flag */
+		struct iav_h26x_sar h264_sar;
+		struct iav_h26x_weighted_pred h264_wp;
+
+		u32 mjpeg_quality;		/*!< Quality value for MJPEG stream */
+
+		/* H265 shares same structure with H264 */
+		struct iav_h26x_gop h265_gop;
+		struct iav_bitrate h265_rc;
+		struct iav_rc_strategy h265_rc_strategy;
+		struct iav_qpmatrix h265_roi;
+		struct iav_h26x_enc_param h265_enc;
+		struct iav_h26x_slice h265_slice;
+		struct iav_h26x_pskip h265_pskip;
+		struct iav_h26x_drop_frame h265_drop_frame;
+		int h265_force_idr;		/*!< Flag for force IDR */
+		u32 h265_force_fast_seek;	/*!< Flag for force fast seek frame insertion */
+		u32 h265_fast_seek_interval;	/*< Flag for fast seek interval */
+		u8  h265_md_cat_lut[MD_CAT_MAX_NUM]; /*!< H.265 MD category mapping look up table */
+		struct iav_h26x_sar h265_sar;
+		struct iav_h26x_weighted_pred h265_wp;
+	} arg; /*!< The stream configuration items */
+	u32 dsp_pts; /*!< The DSP PTS for the stream configurations */
+};
+
+/*! @addtogroup iav-ioctl-general-helper
+ *  @{
+ */
+enum iav_h264_profile {
+	H264_PROFILE_MAIN		= 1, /*!< 1 */
+	H264_PROFILE_HIGH		= 2, /*!< 2 */
+	H264_PROFILE_NUM		= 3, /*!< 3 */
+	H264_PROFILE_FIRST		= H264_PROFILE_MAIN, /*!< H264_PROFILE_MAIN */
+	H264_PROFILE_LAST		= H264_PROFILE_NUM, /*!< H264_PROFILE_NUM */
+};
+
+enum iav_h264_au_type {
+	H264_NO_AUD_NO_SEI			= 0, /*!< 0 */
+	H264_AUD_BEFORE_SPS_WITH_SEI		= 1, /*!< 1 */
+	H264_AUD_AFTER_SPS_WITH_SEI		= 2, /*!< 2 */
+	H264_NO_AUD_WITH_SEI			= 3, /*!< 3 */
+	H264_AU_TYPE_NUM			= 4, /*!< 4 */
+};
+
+enum iav_h264_aqp_type {
+	H264_AQP_TYPE_DEFAULT	= 0, /*!< 0, Default option in internal RC. */
+	H264_AQP_TYPE_FRAME_QP	= 1, /*!< 1, Frame QP for frame size decision. */
+	H264_AQP_TYPE_MB_QP		= 2, /*!< 2, MB QP for frame size decision. */
+	H264_AQP_TYPE_NUM		= 3, /*!< 3 */
+};
+/*! @} */  /* End of iav-ioctl-general-helper */
+
+/*! @addtogroup iav-ioctl-general-struct */
+struct iav_pic_info {
+	u32	rate;
+	u32	scale;
+	u16	width;
+	u16	height;
+};
+
+/*! @addtogroup iav-ioctl-general-helper
+ *  @{
+ */
+enum iav_ltr_num_log2 {
+	IAV_LTR_NUM_LOG2_MIN	= 1, /*!< 1 */
+	IAV_LTR_NUM_LOG2_MAX	= 8, /*!< 8 */
+};
+
+enum iav_ltr_type {
+	IAV_LTR_TYPE_SINGLE	= 1, /*!< 1 */
+	IAV_LTR_TYPE_TWO	= 2, /*!< 2 */
+	IAV_LTR_TYPE_NUM	= IAV_LTR_TYPE_TWO, /*!< IAV_LTR_TYPE_TWO */
+};
+
+enum iav_two_ltr_mode {
+	IAV_TWO_LTR_FAST_SEEK	= 0, /*!< 0 */
+	IAV_TWO_LTR_PREV_PREV	= 1, /*!< 1 */
+	IAV_TWO_LTR_MODE_NUM	= 2, /*!< 2 */
+};
+/*! @} */  /* End of iav-ioctl-general-helper */
+
+/*! @addtogroup iav-ioctl-general-struct */
+struct iav_h26x_cfg {
+	u32 id;			/*!< Stream ID */
+	u32 gop_structure : 8;	/*!< @sa iav_gop_model */
+	u32 M : 8;		/*!< Number of pictures between reference P pictures */
+	u32 N : 16;		/*!< Number of pictures between reference I pictures, should be no larger than 4095 */
+	u32 idr_interval : 8;	/*!< Indicate the number of GOP's after which an IDR picture should happen */
+	u32 profile : 8;	/*!< This field specifies the profile level. The default is the main profile for stream configuration.
+				     0:  Baseline profile
+				     1:  Main profile
+				     2:  High profile	     */
+	u32 au_type : 8;	/*!< This field specifies the NAL unit structure.
+				     0:  No AUD, no SEI header info
+				     1:  Add AUD before SPS, PPS, with SEI in the end
+				     2:  Add AUD after SPS, PPS, with SEI in the end
+				     3:  No AUD, with SEI in the end. */
+	u32 chroma_format : 8;	/*!< Chroma format */
+	u32 cpb_buf_idc : 8;	/*!< CPB buffer size indicator. 0 indicates using a buffer size that matches the profile and level which are based on the encoding size. */
+	u32 is_update_N_to_next_GOP : 1;	/*!< Flag to update GOP length to next GOP */
+	u32 reserved0 : 23;
+	u32 cpb_user_size;	/*!< This field specifies the CPB buffer size */
+	u32 en_panic_rc : 2;	/*!< Flag for panic mode of RC */
+	u32 cpb_cmp_idc : 2;	/*!< Flag for CPB settings */
+	u32 fast_rc_idc : 4;	/*!< Flag for fast RC mode */
+	u32 mv_threshold : 1;	/*!< Motion vector threshold */
+	u32 long_start_code : 1;/*!< Flag for long start code */
+	u32 dblk_custom_flag : 1; /*!< Flag for dblk */
+	u32 two_ltrs_mode : 1;	/*!< 0: two long term + fast seek; 1: two long term + prev prev q */
+	u32 ltrs_type: 2;	/*!< Type of long term references. Default is 0.
+				     0: No long term ref frame
+				     1: 1 long term ref frame
+				     2: 2 long term ref frames. */
+	u32 rserved0 : 2;
+	u32 log2_num_ltrp_per_gop : 8;	/*!< Number of long-term reference picture in a GoP */
+	u32 fast_seek_intvl : 8;	/*!< The fast seek interval for long term frames */
+	u16 user1_intra_bias;	/*!< The intra bias for user class 1, range from 0 to 9 */
+	u16 user1_direct_bias;	/*!< The direct bias for user class 1, range from 0 to 9 */
+	u16 user2_intra_bias;	/*!< The intra bias for user class 2, range from 0 to 9 */
+	u16 user2_direct_bias;	/*!< The direct bias for user class 2, range from 0 to 9 */
+	s32 deblocking_filter_alpha : 4; /*!< The deblocking filter range is -6 to 6 */
+	s32 deblocking_filter_beta : 4;	 /*!< The deblocking filter range is -6 to 6 */
+	u32 deblocking_filter_enable : 2;/*!< Flag for deblocking filter */
+	u32 aqp_type : 2;	/*!< AQP type for frame size decision, @sa iav_h264_aqp_type:
+				     0:  Default option
+				     1:  Frame QP for frame size decision
+				     2:  MB QP for frame size decision	*/
+	u32 wp_mode : 2;	/*!< Weighted predict mode:
+				     0:  Disable WP,
+				     1:  WP for P frame,
+				     2:  WP for B frame,
+				     3:  WP for P&B frame */
+	u32 reserved1 : 18;
+	struct iav_pic_info pic_info;	/*!< Picture information for decoding (rate / scale) */
+};
+
+
+/*! @addtogroup iav-ioctl-general-helper
+ *  @{
+ */
+enum iav_gop_model{
+	IAV_GOP_SIMPLE			= 0, /*!< 0, simpe GOP (I & P frames), MPEG2 alike */
+	IAV_GOP_ADVANCED		= 1, /*!< 1, hierachical GOP */
+	IAV_GOP_SVCT_2			= 2, /*!< 2, 2 level SVCT*/
+	IAV_GOP_SVCT_3			= 3, /*!< 3, 3 level SVCT */
+	IAV_GOP_SVCT_4			= 4, /*!< 4, 4 level SVCT */
+	IAV_GOP_FAST_SEEK		= 5, /*!< 5, fast seek GOP */
+	IAV_GOP_2_REF			= 6, /*!< 6, 2 ref GOP */
+	IAV_GOP_FAST_SEEK_2_REF		= 7, /*!< 7, 2 ref with fast seek GOP */
+	IAV_GOP_NON_REF_P		= 8, /*!< 8, all P refers from I. App can drop P anytime from the GOP.
+									This GOP enable fast reverse play. */
+};
+
+enum iav_bitrate_control_params {
+	/* QP limit parameters */
+	H264_AQP_MAX					= 4, /*!< 4, QP limit parameters */
+	H264_QP_MAX						= 51, /*!< 51 */
+	H264_QP_MIN						= 0, /*!< 0 */
+	H264_I_QP_REDUCE_MAX			= 10, /*!< 10 */
+	H264_I_QP_REDUCE_MIN			= 1, /*!< 1 */
+	H264_P_QP_REDUCE_MAX			= 5, /*!< 5 */
+	H264_P_QP_REDUCE_MIN			= 1, /*!< 1 */
+	H264_B_QP_REDUCE_MAX			= 5, /*!< 5 */
+	H264_B_QP_REDUCE_MIN			= 0, /*!< 0 */
+	H264_C_QP_REDUCE_MAX			= 5, /*!< 5 */
+	H264_C_QP_REDUCE_MIN			= 0, /*!< 0 */
+	H264_Q_QP_REDUCE_MAX			= 10, /*!< 10 */
+	H264_Q_QP_REDUCE_MIN			= 1, /*!< 1 */
+	/* skip frame flag */
+	H264_WITHOUT_FRAME_DROP			= 0, /*!< 0, skip frame flag */
+	H264_WITH_FRAME_DROP			= 6, /*!< 6 */
+	H264_LOG_Q_NUM_MINUS_1_MAX		= 4, /*!< 4 */
+	H264_I_SIZE_KB_MAX				= 8192, /*!< 8192 */
+	/* svbr control */
+	H264_SVBR_NESS_MIN				= 1, /*!< 1, svbr control */
+	H264_SVBR_NESS_MAX				= 200, /*!< 200 */
+	H264_SVBR_MULTI_MAX				= 5, /*!< 5 */
+	/* cbr stable br adjust */
+	H264_CBR_STABLE_BR_ADJUST_MIN	= 0, /*!< 0, cbr stable br adjust */
+	H264_CBR_STABLE_BR_ADJUST_MAX	= 10, /*!< 10 */
+};
+
+enum {
+	/* bitrate control */
+	IAV_BRC_CBR	= 1, /*!< 1 */
+	IAV_BRC_PCBR	= 2, /*!< 2 */
+	IAV_BRC_VBR	= 3, /*!< 3 */
+	IAV_BRC_SCBR	= 4, /*!< 4, smart CBR */
+	IAV_BRC_SVBR	= 5, /*!< 5 */
+};
+
+enum {
+	WP_FOR_NONE = 0, /*!< 0 */
+	WP_FOR_P = 1, /*!< 1 */
+	WP_FOR_B = 2, /*!< 2 */
+	WP_FOR_PB = 3, /*!< 3 */
+	WP_MODE_NUM, /*!< 4 */
+	WP_MODE_FIRST = WP_FOR_NONE, /*!< WP_FOR_NONE */
+	WP_MODE_LAST = WP_MODE_NUM, /*!< WP_MODE_NUM */
+};
+/*! @} */  /* End of iav-ioctl-general-helper */
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_mjpeg_cfg {
+	u32 id;			/*!< Stream ID */
+	u32 chroma_format : 8;	/*!< Chroma format, @sa iav_chroma_format */
+	u32 quality : 8;	/*!< 1 ~ 100, 100 is best quality. The bigger quality value,
+					the larger frame size it is (especially for high mega resolution). */
+	u32 reserved1 : 16;
+	u32 restart_interval;	/*!< restart interval MB for mjpeg. 0 : handle in ucode. >0 : user specified. */
+};
+
+struct iav_overlay_area {
+	u16 enable : 1;	/*!< 0:  Disable; 1:  Enable */
+	u16 reserved1 : 15;
+	u16 start_x;	/*!< Offset x of the overlay area */
+	u16 start_y;	/*!< Offset y of the overlay area */
+	u16 width;	/*!< Width of the overlay area */
+	u16 pitch;	/*!< Pitch of the overlay area */
+	u16 height;	/*!< Height of the overlay area */
+	u32 total_size;	/*!< Total byte size of the overlay area */
+	unsigned long clut_addr_offset; /*!< CLUT address for the overlay area */
+	unsigned long data_addr_offset; /*!< Overlay data buffer (without CLUT) */
+};
+/*! @} */  /* End of iav-ioctl-general-struct */
+
+/*! @addtogroup iav-ioctl-general-helper */
+#define MAX_NUM_OVERLAY_AREA	(10)
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_overlay_insert {
+	u32 id;		/*!< Stream ID */
+	u32 enable: 1;	/*!< Flag to enable / disable overlay insertion */
+	u32 osd_insert_always: 1; /*!< Flag to insert overlay all the time no matter the stream encoding is started or not. */
+	u32 reserved : 30;
+	struct iav_overlay_area area[MAX_NUM_OVERLAY_AREA]; /*!< Parameters for each overlay area */
+};
+
+struct iav_fastosd_string_area {
+	u8 enable;	 /*!< Enable flag */
+	u8 string_length;/*!< String length */
+	u16 string_output_pitch; /*!< Pitch of string output */
+	u16 offset_x;	 /*!< X offset */
+	u16 offset_y;	 /*!< Y offset */
+	/* if each char's width is const,
+	 * overall_string_width = num_of_char_in_string * width_of_char_font
+	 */
+	u32 overall_string_width; /*!< Total width, if each char's width is const,
+				       overall_string_width = num_of_char_in_string * width_of_char_font */
+	u32 reserved;
+
+	unsigned long string_output_offset; /*!< Memory to store the output overlay string content, which is generated by DSP. */
+	unsigned long string_offset; /*!< DSP OVERLAY STRING START */
+	unsigned long clut_offset;   /*!< Memory for overlay CLUT content. */
+};
+
+struct iav_fastosd_insert {
+	u8 enable;		/*!< Enable flag */
+	u8 id;			/*!< Stream ID */
+	u8 string_num_region;	/*!< Total FastOSD number */
+	u8 reserved;
+
+	u16 font_map_pitch;	/*!< Font map pitch */
+	u16 font_map_height;	/*!< Font map height */
+	unsigned long font_map_offset;   /*!< Font map offset */
+	unsigned long font_index_offset; /*!< Font index offset */
+
+	struct iav_fastosd_string_area string_area[MAX_NUM_OVERLAY_AREA]; /*!< Parameters for each FastOSD area */
+};
+/*! @} */  /* End of iav-ioctl-general-struct */
+
+/*! @addtogroup iav-ioctl-general-helper */
+enum iav_warp_params {
+	MAX_NUM_WARP_AREAS		= 8, /*!< 8, Maximum warp area number from DSP point of view. */
+	MAX_NUM_WARP_VIEW		= 8, /*!< 8, Maximum warp view number from user point of view. */
+
+	MAX_GRID_WIDTH			= 128, /*!< 128, Maximum grid width (column) for warp vector table. */
+	MAX_GRID_HEIGHT			= 96,  /*!< 96, Maximum grid height (row) for warp vector table. */
+	MAX_WARP_TABLE_SIZE		= (MAX_GRID_WIDTH * MAX_GRID_HEIGHT), /*!< MAX_GRID_WIDTH * MAX_GRID_HEIGHT */
+	MAX_WARP_VECT_PART_SIZE = (MAX_NUM_WARP_AREAS * \
+		MAX_WARP_TABLE_SIZE * sizeof(s16) * 2),   /*!< MAX_NUM_WARP_AREAS * MAX_WARP_TABLE_SIZE * sizeof(s16) * 2 */
+	MAX_GRID_WIDTH_LDC		= MAX_GRID_WIDTH, /*!< MAX_GRID_WIDTH */
+	MAX_WARP_TABLE_SIZE_LDC	= (MAX_GRID_WIDTH_LDC * MAX_GRID_HEIGHT), /*!< MAX_GRID_WIDTH_LDC * MAX_GRID_HEIGHT */
+
+	GRID_SPACING_PIXEL_8	= 0, /*!< 0 */
+	GRID_SPACING_PIXEL_16	= 1, /*!< 1 */
+	GRID_SPACING_PIXEL_32	= 2, /*!< 2 */
+	GRID_SPACING_PIXEL_64	= 3, /*!< 3 */
+	GRID_SPACING_PIXEL_128	= 4, /*!< 4 */
+	GRID_SPACING_PIXEL_256	= 5, /*!< 5 */
+	GRID_SPACING_PIXEL_512	= 6, /*!< 6 */
+
+	WARP_AREA_H_OFFSET		= 0, /*!< 0 */
+	WARP_AREA_V_OFFSET		= 1, /*!< 1 */
+	WARP_AREA_VECTOR_NUM		= 2, /*!< 2 */
+
+	WARP_AREA_CHANGE			= 0, /*!< 0, This is to change the selected warp area configuration on the fly. */
+	WARP_AREA_UPDATE			= 1, /*!< 1, This is to update all warp areas configuration at the same time. */
+};
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_warp_map {
+	u8 enable;		/*!< Flag to enable / disable warp vector table. */
+	u8 output_grid_col;	/*!< Grid columns */
+	u8 output_grid_row;	/*!< Grid rows */
+	u8 h_spacing : 4;	/*!< H-spacing */
+	u8 v_spacing : 4;	/*!< V-spacing */
+	u32 reserved;
+	unsigned long data_addr_offset; /*!< Warp table DRAM offset */
+};
+
+struct iav_warp_area {
+	u8 enable;	/*!< Area enable flag */
+	u8 rotate_flip;	/*!< NOT used on CV22 */
+	u8 reserved[2];
+	struct iav_rect input;		/*!< Warp area input window */
+	struct iav_rect output;		/*!< Warp area output window */
+	struct iav_warp_map h_map;	/*!< h-warp map */
+	struct iav_warp_map v_map;	/*!< v-warp map */
+};
+
+struct iav_warp_main {
+	u8 keep_dptz[IAV_SRCBUF_NUM]; /*!< Keep DPTZ attribute for each source buffer output */
+	struct iav_warp_area area[MAX_NUM_WARP_AREAS]; /*!< Warp area configuration */
+	u8 area_num_per_view[MAX_NUM_WARP_VIEW]; /*!< Specify the number of warp areas for each warp view. */
+};
+
+struct iav_warp_dptz {
+	u16 buf_id;		/*!< Source buffer ID */
+	u16 updated_area_map;	/*!< The bit map of areas to be updated. */
+	struct iav_rect input[MAX_NUM_WARP_AREAS];	/*!< Input window of each updated area. */
+	struct iav_rect output[MAX_NUM_WARP_AREAS];	/*!< Output window of each updated area. */
+};
+
+struct iav_pyramid_roi {
+	u32 chan_id : 8;	/*!< Channel ID */
+	u32 layers_map : 6;	/*!< Pyramid layer bit map */
+	u32 reserved0 : 18;
+	struct iav_rect crop_win[IAV_MAX_PYRAMID_LAYERS]; /*!< crop window */
+};
+/*! @} */  /* End of iav-ioctl-general-struct */
+
+/*! @addtogroup iav-ioctl-general-helper */
+enum iav_warp_ctrl_id {
+	IAV_WARP_CTRL_MAIN		= 0, /*!< 0, This is to configure multi-region warp area parameters for post main. */
+	IAV_WARP_CTRL_DPTZ		= 1, /*!< 1, This is to configure multi-region warp DPTZ from post main to sub source buffers. */
+	IAV_WARP_CTRL_ENCOFS		= 2, /*!< 2, This is to configure stream encode offset synchronized with warp DPTZ effect. */
+	IAV_WARP_CTRL_NUM		= 3, /*!< 3 */
+	IAV_WARP_CTRL_FIRST		= IAV_WARP_CTRL_MAIN, /*!< IAV_WARP_CTRL_MAIN */
+	IAV_WARP_CTRL_LAST		= IAV_WARP_CTRL_NUM,  /*!< IAV_WARP_CTRL_NUM */
+};
+
+/*! @addtogroup iav-ioctl-general-struct */
+struct iav_warp_ctrl {
+	enum iav_warp_ctrl_id cid;	/*!< Config class ID, @sa iav_warp_ctrl_id */
+	u16 channel_id;			/*!< Channel ID */
+	u16 warp_area_behavior : 2;	/*!< Specify warp are behavior. 0 is to change the selected warp area configuration on the fly,
+								1 is to update all warp areas configuration at the same time. */
+	u16 reserved : 14;
+	union {
+		struct iav_warp_main main;
+		struct iav_warp_dptz dptz;
+	} arg;				/*!< Warp configuration */
+};
+
+/*! @addtogroup iav-ioctl-general-helper */
+enum iav_video_proc_id {
+	IAV_VIDEO_PROC_DPTZ			= 0x00, /*!< 0x00, This is to configure DPTZ parameters on the fly. */
+	IAV_VIDEO_PROC_MASK			= 0x01, /*!< 0x01, This is to configure privacy mask on the fly. */
+	IAV_VIDEO_PROC_CANVAS_ORDER	= 0x02, /*!< 0x02, This is to configure channel order in one canvas on the fly. */
+	IAV_VIDEO_PROC_MULTI_BLEND	= 0x03, /*!< 0x03, This is to configure multi-channel blend overlap area parameters on the fly. */
+	IAV_VIDEO_PROC_BLEND_DPTZ	= 0x04, /*!< 0x04, This is to configure multi-channel blend DPTZ parameters on the fly. */
+	IAV_VIDEO_PROC_PYRAMID_ROI	= 0x05, /*!< 0x05, This is to configure pyramid ROI parameters on the fly. */
+	IAV_VIDEO_PROC_NUM			= 0x06, /*!< 0x06 */
+	IAV_VIDEO_PROC_FIRST			= IAV_VIDEO_PROC_DPTZ, /*!< IAV_VIDEO_PROC_DPTZ */
+	IAV_VIDEO_PROC_LAST			= IAV_VIDEO_PROC_NUM   /*!< IAV_VIDEO_PROC_NUM */
+};
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_privacy_mask {
+	u8 channel_id;	/*!< Channel ID */
+	u8 enable;	/*!< 0: disable, 1: enable */
+	u8 y;		/*!< y of the mask color */
+	u8 u;		/*!< u of the mask color */
+	u8 v;		/*!< v of the mask color */
+	u8 reserved0;
+	u16 buf_pitch;	/*!< Buffer pitch (in byte unit) is aligned to 32 bytes. The unit depends on the privacy mask type. */
+	u16 buf_height;	/*!< Buffer height is in pixel unit and equal to main buffer height. */
+	u16 reserved1[3];
+	unsigned long data_addr_offset; /*!< Start address of privacy mask data */
+};
+
+struct iav_overlap_area {
+	u16 width;	/*!< Width of blend overlap area. */
+	u16 height;	/*!< Height of blend overlap area. */
+	u16 pitch;	/*!< Pitch of blend overlap area. It must be alighed to 64 bytes. */
+	u16 update_alpha_enable : 1; /*!< This is a flag to enable / disable updating alpha table. */
+	u16 reserved : 15;
+	u8 chan_id[IAV_BLEND_NUM]; /*!< Channel ID of overlapped areas */
+	unsigned long alpha_addr_offset[IAV_BLEND_NUM]; /*!< Offset of Alpha table memory */
+};
+
+struct iav_blend_overlap {
+	u8 active_overlap_num;	/*!< Active blend overlap number. @sa IAV_BLEND_OVERLAP_AREA_MAX */
+	u8 reserved[3];
+	struct iav_overlap_area mc_overlap[IAV_BLEND_OVERLAP_AREA_MAX]; /*!< Overlap area configuration */
+};
+
+struct iav_blend_dptz_info {
+	u32 enable : 1;	/*!< Blend DPTZ enable flag */
+	u32 reserved : 31;
+	struct iav_rect input;	/*!< Blend DPTZ input window */
+	struct iav_rect output;	/*!< Blend DPTZ output window */
+};
+
+struct iav_blend_dptz {
+	struct iav_blend_dptz_info dptz[IAV_SRCBUF_NUM]; /*!< Blend DPTZ configuration */
+};
+
+struct iav_video_proc {
+	enum iav_video_proc_id cid; /*!< Configuration item ID, @sa iav_video_proc_id */
+	union {
+		struct iav_dptz dptz;
+		struct iav_privacy_mask mask;
+		struct iav_canvas_order canvas_order;
+		struct iav_blend_overlap blend_overlap;
+		struct iav_blend_dptz blend_dptz;
+		struct iav_pyramid_roi pyramid_roi;
+	} arg; /*!< Configuration items */
+};
+
+struct iav_apply_flag {
+	int apply;
+	u32 param;
+};
+
+struct iav_efm_get_pool_info {
+	u32 stream_id;			/*!< EFM stream id*/
+	u32 yuv_buf_num;	/*!< EFM YUV buffer number */
+	u32 yuv_pitch;		/*!< YUV pitch */
+	u32 me_buf_num;		/*!< EFM ME buffer number */
+	u32 me1_pitch;		/*!< ME1 pitch */
+	u32 me0_pitch;		/*!< ME0 pitch */
+	struct iav_window yuv_size; /*!< YUV size */
+	struct iav_window me1_size; /*!< ME1 size */
+	struct iav_window me0_size; /*!< ME0 size */
+	u32 chroma_format;	/*!< Chroma_format: 0: Mono; 1: YUV420; 2: YUV422; 3: YUV444. */
+};
+
+struct iav_efm_request_frame {
+	u32 stream_id;	/*!< EFM stream id*/
+	u32 frame_idx;	/*!< EFM frame index */
+	unsigned long yuv_luma_offset;	/*!< YUV Luma data offset */
+	unsigned long yuv_chroma_offset;/*!< YUV Chromatic data offset */
+	unsigned long me1_offset;	/*!< ME1 data offset */
+	unsigned long me0_offset;	/*!< ME0 data offset */
+};
+
+struct iav_efm_handshake_frame {
+	u32 stream_id;	/*!< EFM stream ID */
+	u32 frame_idx;	/*!< EFM frame index */
+	u32 frame_pts;	/*!< EFM frame PTS */
+	u8 is_last_frame; /*!< Flag for last_frame */
+	u8 use_hw_pts;	/*!< HW PTS, only apply to real time's case */
+	u8 reserved[2];
+};
+
+struct iav_custom_sei_request_buf {
+	u32 frame_idx;	/*!< customized SEI buffer frame index */
+	u32 offset;		/*!< customized SEI buffer offset */
+	u32 size;		/*!< customized SEI buffer size */
+};
+
+struct iav_raw_enc_setup {
+	u32 vinc_id;		/*!< VIN Control ID */
+	u32 raw_frame_size;	/*!< RAW data size */
+	u32 raw_hdec_size;	/*!< HDEC data size */
+	u32 preblend_size;	/*!< Preblend data size */
+	u32 pitch : 16;		/*!< RAW data pitch */
+	u32 raw_hdec_dpitch : 16; /*!< HDEC data pitch */
+	u32 preblend_dpitch : 16; /*!< Pre-blend data pitch */
+	u32 raw_frame_num : 8;	/*!< RAW frame number */
+	u32 reserved : 8;
+	u64 frame_pts;		/*!< Frame PTS */
+	unsigned long raw_daddr_offset;	/*!< RAW data DRAM offset */
+	unsigned long raw_hdec_daddr_offset; /*!< HDEC data DRAM offset */
+	unsigned long preblend_daddr_offset; /*!< Pre-blend data DRAM offset */
+};
+
+struct iav_apply_frame_sync {
+	u32 dsp_pts;			/*!< Specify the PTS of synchronized frame to apply frame sync parameters. */
+	u32 stream_updated_map : 16;	/*!< The stream id bit map to update sync parameters. */
+	u32 force_update : 1;	/*!< Force to update sync parameters if the frame PTS is not found from the internal queue. */
+	u32 reserved : 15;
+	u64 stream_frame_num[IAV_STREAM_MAX_NUM_ALL];	/*!< The frame number to apply stream sync parameters. */
+};
+
+/*! @} */  /* End of iav-ioctl-general-struct */
+
+/*! @addtogroup iav-ioctl-general-helper
+ *  @{
+ */
+enum iav_vcap_state {
+	IAV_VCAP_STATE_ACTIVE = 0, /*!< 0 */
+	IAV_VCAP_STATE_IDLE = 1,   /*!< 1 */
+};
+
+enum iav_vcap_cfg_id {
+	IAV_VCAP_CFG_STATE = 0x0000, /*!< 0x0000 */
+	IAV_VCAP_REPEAT_FRAME = 0x0001, /*!< 0x0001 */
+	IAV_VCAP_CFG_NUM,            /*!< 0x0002 */
+};
+/*! @} */  /* End of iav-ioctl-general-helper */
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_vcap_state_cfg {
+	u32 vinc_map; /*!< VIN control ID map */
+	enum iav_vcap_state state[VIN_CONTROLLER_NUM]; /*!< vcap states */
+};
+
+struct iav_vcap_cfg {
+	enum iav_vcap_cfg_id cid; /*!< VCAP configuration ID */
+	union {
+		struct iav_vcap_state_cfg state_cfg;
+		u16 vinc_id;
+	} arg;
+};
+/*! @} */  /* End of iav-ioctl-general-struct */
+
+/*! @addtogroup iav-ioctl-general-helper */
+enum vin_idsp_apply_map {
+	IAV_APPLY_NONE		= 0,		/*!< 0 */
+	IAV_APPLY_VIN_CFG	= (1 << 0),	/*!< 1 << 0 */
+	IAV_APPLY_IDSP_CFG	= (1 << 1),	/*!< 1 << 1 */
+	IAV_APPLY_ALL_CFG	= (IAV_APPLY_VIN_CFG | IAV_APPLY_IDSP_CFG), /*!< IAV_APPLY_VIN_CFG | IAV_APPLY_IDSP_CFG */
+};
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_vin_idsp_config {
+	struct vindev_wdr_gp_info vin_cfg;
+	struct idsp_config_s idsp_cfg;
+	enum vin_idsp_apply_map apply_map;
+	u8 resend_all_cfg_done[IMG_MAX_VIN_CHANNEL_NUM];
+};
+
+struct iav_vin_compand_config {
+	u8 vsrc_id;
+	u8 comp_en;
+	u8 decomp_en;
+	u8 reserved[1];
+	u16 comp_lut[COMP_LUT_ENTRY_NUM];
+	u16 reserved1;
+	u32 decomp_lut[DECOMP_LUT_ENTRY_NUM];
+};
+
+struct iav_vin_delay_info {
+	struct vindev_sht_agc_seq sht_agc[IMG_MAX_VIN_CHANNEL_NUM];
+};
+
+struct iav_vin_idsp_delay_info {
+	struct iav_vin_delay_info vin;
+	struct idsp_delay_info_s idsp;
+};
+/*! @} */  /* End of iav-ioctl-general-struct */
+
+/*! @addtogroup iav-ioctl-general-helper
+ *  @{
+ */
+enum iav_nalu_type_h264 {
+	NT_NON_IDR	= 1, /*!< 1 */
+	NT_IDR		= 5, /*!< 5 */
+	NT_SEI		= 6, /*!< 6 */
+	NT_SPS		= 7, /*!< 7 */
+	NT_PPS		= 8, /*!< 8 */
+	NT_AUD		= 9, /*!< 9 */
+};
+
+enum iav_nalu_type_h265 {
+	TRAIL_N		= 0, /*!< 0 */
+	TRAIL_R		= 1, /*!< 1 */
+	TSA_N		= 2, /*!< 2 */
+	TSA_R		= 3, /*!< 3 */
+	STSA_N		= 4, /*!< 4 */
+	STSA_R		= 5, /*!< 5 */
+	IDR_W_RADL	= 19, /*!< 19 */
+	IDR_N_LP	= 20, /*!< 20 */
+};
+
+enum iav_debugcfg_module {
+	IAV_DEBUG_IAV	= (1 << 0), /*!< 1 << 0 */
+	IAV_DEBUG_DSP	= (1 << 1), /*!< 1 << 1 */
+	IAV_DEBUG_VIN	= (1 << 2), /*!< 1 << 2 */
+	IAV_DEBUG_VOUT	= (1 << 3), /*!< 1 << 3 */
+	IAV_DEBUG_AAA	= (1 << 4), /*!< 1 << 4 */
+};
+
+enum iav_debugcfg_id {
+	IAV_DEBUGCFG_CHECK			= 0x0000, /*!< 0x0000 */
+	IAV_DEBUGCFG_MODULE			= 0x0001, /*!< 0x0001 */
+	IAV_DEBUGCFG_AUDIT_INT		= 0x0002, /*!< 0x0002 */
+	IAV_DEBUGCFG_AUDIT_IOCTL	= 0x0003, /*!< 0x0003 */
+	IAV_DEBUGCFG_CHECK_SYS_PERF = 0x0004, /*!< 0x0004 */
+	IAV_DEBUGCFG_AUDIT_YUV_DELAY	= 0x0005, /*!< 0x0005 */
+	IAV_DEBUGCFG_NUM			= 0x0006, /*!< 0x0006 */
+	IAV_DEBUGCFG_FIRST			= IAV_DEBUGCFG_CHECK, /*!< IAV_DEBUGCFG_CHECK */
+	IAV_DEBUGCFG_LAST			= IAV_DEBUGCFG_NUM,   /*!< IAV_DEBUGCFG_NUM */
+
+	IAV_DEBUGCFG_CHECK_ALL 		= IAV_DEBUGCFG_CHECK, /*!< IAV_DEBUGCFG_CHECK */
+};
+/*! @} */  /* End of iav-ioctl-general-helper */
+
+/*! @addtogroup iav-ioctl-general-struct
+ *  @{
+ */
+struct iav_debug_module {
+	u8 enable;
+	u8 reserved[3];
+	u32 flags;
+	u32 args[4];
+};
+
+struct iav_debug_audit {
+	u32	id;
+	u32	enable : 1;
+	u32	reserved : 31;
+	u64	cnt;
+	u64	sum;
+	u32	max;
+	u32	min;
+};
+
+struct iav_debug_cfg {
+	u32	id; /*!< Not currently supported */
+	enum iav_debugcfg_id cid; /*!< Debug configuration item ID */
+	union {
+		u32	enable; /*!< If IAV, there is no need to check if it is enabled or not */
+		struct iav_debug_module module; /*!< Custom debug module configuration */
+		struct iav_debug_audit audit;   /*!< IAV Audit debugging configuration */
+	} arg; /*!< IAV debug configuration */
+};
+/*! @} */ /* End of iav-ioctl-general-struct  */
+
+
+/*!
+ * @addtogroup iav-ioctl-dec-helper
+ * @{
+ */
+#define DIAV_MAX_DECODER_NUMBER 				8
+#define DIAV_MAX_DECODE_VOUT_NUMBER 			2
+
+#define DIAV_MAX_INTRA_DECODE_CMD_NUMBER 		4
+#define DIAV_MAX_INTRA_FB_NUMBER 				4
+#define DIAV_MAX_INTRA_YUV2YUV_DST_FB_NUMBER 	3
+
+enum {
+	IAV_DECODER_TYPE_INVALID	= 0x00, /*!< 0x00 */
+	IAV_DECODER_TYPE_INTRA		= 0x02, /*!< 0x02 */
+	IAV_DECODER_TYPE_H264		= 0x03, /*!< 0x03 */
+	IAV_DECODER_TYPE_H265		= 0x04, /*!< 0x04 */
+
+	IAV_DECODER_TYPE_MJPEG		= 0x06, /*!< 0x06 */
+};
+
+enum {
+	IAV_TRICK_PLAY_PAUSE	= 0, /*!< 0 */
+	IAV_TRICK_PLAY_RESUME	= 1, /*!< 1 */
+	IAV_TRICK_PLAY_STEP	= 2, /*!< 2 */
+};
+
+enum {
+	IAV_PB_DIRECTION_FW	= 0, /*!< 0 */
+	IAV_PB_DIRECTION_BW	= 1, /*!< 1 */
+};
+
+enum {
+	IAV_PB_SCAN_MODE_ALL_FRAMES	= 0, /*!< 0 */
+	IAV_PB_SCAN_MODE_I_ONLY		= 1, /*!< 1 */
+};
+
+enum {
+	IAV_DSP_BUFFER_PIX_FMT_420	= 1, /*!< 1 */
+	IAV_DSP_BUFFER_PIX_FMT_422	= 2, /*!< 2 */
+};
+/*! @} */ /* End of iav-ioctl-dec-helper */
+
+/*! @addtogroup iav-ioctl-dec-struct
+ * @{
+ */
+struct iav_decode_vout_config {
+	u8 vout_id;	/*!< VOUT ID */
+	u8 enable;	/*!< VOUT is enable or not */
+	u8 flip;	/*!< VOUT is flip or not */
+	u8 rotate;	/*!< VOUT is rotate or not */
+
+	u16 target_win_offset_x; /*!< Display window offset x */
+	u16 target_win_offset_y; /*!< Display window offset y */
+
+	u16 target_win_width;  /*!< Display window width */
+	u16 target_win_height; /*!< Display window height */
+
+	u32 zoom_factor_x; /*!< Zoom factor x */
+	u32 zoom_factor_y; /*!< Zoom factor y */
+
+	u32 vout_mode; /*!< VOUT mode */
+	u32 reserved;
+};
+
+struct iav_decode_mode_config {
+	u8 b_support_ff_fb_bw;			/*!< Playback will support fast FW/BW. Please note that this can need more DRAM usage in DSP if enabled. */
+	u8 debug_max_frame_per_interrupt;	/*!< Debug option, please ignore, fill 0. */
+	u8 debug_use_dproc;			/*!< Debug option, please ignore, fill 0. */
+	u8 num_decoder;				/*!< Number of decoder. */
+
+	u32 max_vout0_width;			/*!< Maximum LCD' width (for DSP's DRAM allocation) */
+	u32 max_vout0_height;			/*!< Maximum LCD' height (for DSP's DRAM allocation) */
+
+	u32 max_vout1_width;			/*!< Maximum HDMI' width (for DSP's DRAM allocation) */
+	u32 max_vout1_height;			/*!< Maximum HDMI' height (for DSP's DRAM allocation) */
+
+	u16 max_n_to_m_ratio;			/*!< Maximum GOP size (for DSP DRAM allocation), If FW/BW are not enabled, can set it to 0. */
+	u8 b_support_all_frame_backward;	/*!< Output: Support all frames backward or not. */
+	u8 num_vout;				/*!< Number of VOUT */
+
+	u8 decoder_type[DIAV_MAX_DECODER_NUMBER]; /*!< Decoder type */
+	u8 enable_vout[DIAV_MAX_DECODER_NUMBER]; /*!< Enable / Disable VOUT for each decoder */
+	u32 max_frm_width[DIAV_MAX_DECODER_NUMBER]; /*!< Maximum Video Width for each decoder */
+	u32 max_frm_height[DIAV_MAX_DECODER_NUMBER]; /*!< Maximum Video Height for each decoder */
+	struct iav_pyramid_cfg pyramid[DIAV_MAX_DECODER_NUMBER]; /*!< Pyramid buffer configuration for each decoder */
+};
+
+struct iav_decoder_info {
+	u8 decoder_id;	/*!< Decoder instance ID */
+	u8 decoder_type;/*!< Decoder type, see IAV_DECODER_TYPE */
+	u8 num_vout;	/*!< Number of VOUT */
+	u8 setup_done;	/*!< Ignore it */
+
+	u32 width;	/*!< Video width */
+	u32 height;	/*!< Video height */
+
+	u32 bsb_size;	/*!< Size of bitstream-buffer */
+	unsigned long bsb_start_offset; /*!< Start offset of bitstream-buffer */
+
+	struct iav_decode_vout_config vout_configs[DIAV_MAX_DECODE_VOUT_NUMBER]; /*!< VOUT configuration */
+};
+
+struct iav_decode_video {
+	u8 decoder_id;			/*!< Decoder ID */
+	u8 num_frames;			/*!< Number of frames in bitstream */
+	u8 reserved[2];
+
+	u32 first_frame_display;	/*!< Specify the PTS of first frame that will be displayed. The former frames will be dropped. */
+
+	unsigned long start_ptr_offset;	/*!< Video data's start offset in bitstream buffer */
+	unsigned long end_ptr_offset;	/*!< Video data's end offset in bitstream buffer */
+};
+
+struct iav_decode_jpeg {
+	u8	decoder_id;		/*!< Decoder ID */
+	u8	reserved[3];
+	u32	size;			/*!< Size of JPEG data */
+	unsigned long start_offset;	/*!< JPEG data start offset in bitstream buffer */
+};
+
+struct iav_decode_bsb {
+	u8 decoder_id;			/*!< Decoder ID */
+	u8 reserved[7];
+
+	unsigned long start_offset;	/*!< Request free zoom's start offset */
+	u32 room; 			/*!< Request free zoom's size, minus 256 byte for avoid read_offset == write_offset*/
+
+	//read only
+	u32 free_room;			/*!< DSP's free zoom (read only) */
+	unsigned long dsp_read_offset;	/*!< DSP's read offset (read only) */
+};
+
+struct iav_decode_stop {
+	u8 decoder_id;	/*!< Decoder ID */
+	u8 stop_flag;	/*!< Stop flag: 0:  End the playback
+			     1:  Keep showing last frame, will continue playback when feeding new data */
+	u8 reserved[6];
+};
+
+struct iav_decode_trick_play {
+	u8 decoder_id;	/*!< Decoder ID */
+	u8 trick_play;	/*!< Trick play type, see IAV_TRICK_PLAY */
+	u8 reserved[6];
+};
+
+struct iav_decode_speed {
+	u8 decoder_id;	/*!< Decoder ID */
+	u8 reserved[3];
+
+	u8 direction;	/*!< See IAV_PB_DIRECTION, 0: forward, 1: backward*/
+	u8 scan_mode;	/*!< See IAV_PB_SCAN_MODE */
+	u16 speed;	/*!< Playback speed, 8.8 fix point format */
+};
+
+struct iav_decode_wait_eos {
+	u8	decoder_id;	/*!< Decoder ID */
+	u8	timeout_ticks;	/*!< time out ticks, 0: No timeout */
+	u8	reserved[6];
+};
+
+struct iav_intraplay_frame_buffer {
+	u8 buffer_id;
+	u8 ch_fmt;
+
+	u16 buf_pitch;
+
+	u16 buf_width;
+	u16 buf_height;
+
+	unsigned long lu_buf_offset;
+	unsigned long ch_buf_offset;
+
+	u16 img_width;
+	u16 img_height;
+	u16 img_offset_x;
+	u16 img_offset_y;
+
+	u32 buffer_size;
+	u32 reserved;
+};
+
+struct iav_intraplay_decode_bitstream {
+	u32 bits_fifo_start;
+	u32 bits_fifo_end;
+};
+
+struct iav_intraplay_display_desc {
+	u8 vout_id;
+	u8 vid_win_update;
+	u8 vid_win_rotate;
+	u8 vid_flip;
+	u8 reserved[4];
+
+	u16 vid_win_width;
+	u16 vid_win_height;
+	u16 vid_win_offset_x;
+	u16 vid_win_offset_y;
+};
+
+struct iav_intraplay_reset_buffers {
+	u8 decoder_id;
+	u8 max_num;
+	u8 reserved[6];
+};
+
+struct iav_intraplay_decode {
+	u8 decoder_id;
+	u8 num;
+	u8 decode_type;
+	u8 reserved[5];
+
+	struct iav_intraplay_decode_bitstream bitstreams[DIAV_MAX_INTRA_DECODE_CMD_NUMBER];
+	struct iav_intraplay_frame_buffer buffers[DIAV_MAX_INTRA_DECODE_CMD_NUMBER];
+};
+
+struct iav_intraplay_yuv2yuv {
+	u8 decoder_id;
+	u8 num;
+	u8 rotate;
+	u8 flip;
+	u8 luma_gain;
+	u8 reserved[3];
+
+	struct iav_intraplay_frame_buffer src_buf;
+	struct iav_intraplay_frame_buffer dst_buf[DIAV_MAX_INTRA_YUV2YUV_DST_FB_NUMBER];
+};
+
+struct iav_intraplay_display {
+	u8 decoder_id;
+	u8 num;
+	u8 reserved[6];
+
+	struct iav_intraplay_frame_buffer buffers[DIAV_MAX_INTRA_DECODE_CMD_NUMBER];
+	struct iav_intraplay_display_desc desc[DIAV_MAX_INTRA_DECODE_CMD_NUMBER];
+};
+
+struct iav_decode_status {
+	u8 decoder_id;		/*!< Decoder ID */
+	u8 is_started;		/*!< Decoder is started */
+	u8 is_send_stop_cmd;	/*!< Decoder has been sent stop command */
+	u8 reserved[5];
+
+	u32 last_pts;		/*!< Last showing frame's pts */
+
+	u32 decode_state;	/*!< DSP decode status */
+	u32 error_status;	/*!< DSP decode error status */
+	u32 total_error_count;	/*!< Total DSP met errors */
+	u32 decoded_pic_number;	/*!< Total decoded picture number */
+
+	//bit stream buffer
+	u32 room; 			/*!< Free zoom left in bitstream buffer,
+					     minus 256 byte for avoid read_offset == write_offset */
+	unsigned long write_offset;	/*!< ARM write offset, in bitstream buffer */
+	unsigned long dsp_read_offset;	/*!< DSP read offset, in bitstream buffer */
+	u32 free_room;			/*!< DSP reported free zoom */
+
+	//debug
+	u32 irq_count;			/*!< IRQ count. Debug only. */
+	unsigned long yuv422_y_addr;	/*!< Luma address of display frame */
+	unsigned long yuv422_uv_addr;	/*!< Chroma address of display frame */
+};
+/*! @} */  /* End of iav-ioctl-dec-struct */
+
+/*!
+ * @addtogroup iav-ioctl-general-helper
+ * @{
+ */
+
+ /*! @macros IAVENCIOC_MAGIC
+  *  @brief IAVENCIOC_MAGIC.
+  */
+#define IAVENCIOC_MAGIC				'V'
+
+/*! @macros IAVENC_IO(nr)
+ *  @brief ioctl none of (nr).
+ */
+#define IAVENC_IO(nr)				_IO(IAVENCIOC_MAGIC, nr)
+
+/*! @macros IAVENC_IOR(nr)
+ *  @brief ioctl read of (nr).
+ */
+#define IAVENC_IOR(nr, size)		_IOR(IAVENCIOC_MAGIC, nr, size)
+
+/*! @macros IAVENC_IOW(nr)
+ *  @brief ioctl write of (nr).
+ */
+#define IAVENC_IOW(nr, size)		_IOW(IAVENCIOC_MAGIC, nr, size)
+
+/*! @macros IAVENC_IOWR(nr)
+ *  @brief ioctl read write of (nr).
+ */
+#define IAVENC_IOWR(nr, size)		_IOWR(IAVENCIOC_MAGIC, nr, size)
+
+/*! @enum IAV_ENC_IOC
+ *  @brief IAV_ENC_IOC Enumerations
+ */
+enum IAV_ENC_IOC {
+
+	IOC_STATE		= 0x00, /*!< 0x00, For DSP & Driver (0x00 ~ 0x0F) */
+	IOC_CHIP_ID		= 0x01, /*!< 0x01 */
+	IOC_DSP_LOG		= 0x02, /*!< 0x02 */
+	IOC_DSP_INFO		= 0x03, /*!< 0x03 */
+	IOC_DSP_HASH		= 0x04, /*!< 0x04 */
+	IOC_DSP_VP_CFG		= 0x05, /*!< 0x05 */
+	IOC_QUERY_INFO		= 0x06, /*!< 0x06 */
+	IOC_QUERY_ENC_MODE_CAP	= 0x07, /*!< 0x07 */
+	IOC_QUERY_ENC_BUF_CAP	= 0x08, /*!< 0x08 */
+
+
+	IOC_ENTER_IDLE			= 0x10, /*!< 0x10, For system (0x10 ~ 0x2F) */
+	IOC_ENABLE_PREVIEW		= 0x11, /*!< 0x11 */
+	IOC_START_ENCODE		= 0x12, /*!< 0x12 */
+	IOC_STOP_ENCODE			= 0x13, /*!< 0x13 */
+	IOC_ABORT_ENCODE		= 0x14, /*!< 0x14 */
+	IOC_SYSTEM_RESOURCE		= 0x15, /*!< 0x15 */
+	IOC_GDMA_COPY			= 0x16, /*!< 0x16 */
+	IOC_QUERY_DESC			= 0x17, /*!< 0x17 */
+	IOC_QUERY_MEMBLOCK		= 0x18, /*!< 0x18 */
+	IOC_EFM_PROC			= 0x19, /*!< 0x19 */
+	IOC_RAW_ENC			= 0x1A, /*!< 0x1A */
+	IOC_MEM_PART			= 0x1B, /*!< 0x1B */
+	IOC_PYRAMID_BUF			= 0x1C, /*!< 0x1C */
+	IOC_CUSTOM_SEI_PROC 	= 0x1D, /*!< 0x1D */
+	IOC_PYRAMID_CFG			= 0x1E, /*!< 0x1E */
+
+
+	IOC_STREAM_CFG			= 0x30, /*!< 0x30, For encode control (0x30 ~ 0x5F) */
+	IOC_H264_CFG			= 0x31, /*!< 0x31 */
+	IOC_H265_CFG			= 0x32, /*!< 0x32 */
+	IOC_MJPEG_CFG			= 0x33, /*!< 0x33 */
+	IOC_FRAME_SYNC			= 0x34, /*!< 0x34 */
+	IOC_OVERLAY_INSERT		= 0x35, /*!< 0x35 */
+	IOC_FASTOSD_INSERT		= 0x36, /*!< 0x36 */
+	IOC_FPS_SUGGEST			= 0x37, /*!< 0x37 */
+
+
+	IOC_VCAP_CFG			= 0x60, /*!< 0x60, For VIN & IDSP & VCAP control (0x60 ~ 0x6F) */
+	IOC_WARP_CTRL			= 0x61, /*!< 0x61 */
+	IOC_VIDEO_PROC			= 0x62, /*!< 0x62 */
+	IOC_VIN_IDSP			= 0x63, /*!< 0x63 */
+	IOC_WAIT_IDSP_FRAME		= 0x64, /*!< 0x64 */
+	IOC_VIN_COMP			= 0x65, /*!< 0x65 */
+	IOC_IMG_SCALE		= 0x66, /*!< 0x66 */
+
+	IOC_TEST				= 0xD0, /*!< 0xD0, For Misc setting (0xD0 ~ 0xEF) */
+	IOC_DEBUG				= 0xD1, /*!< 0xD1 */
+
+
+	IOC_CUSTOM				= 0xF0, /*!< 0xF0, Reserved (0xF0 ~ 0xFF) */
+};
+/*! @} */  /* End of iav-ioctl-general-helper */
+
+
+/*!
+ * @addtogroup iav-ioc-enc-use-drv
+ * @{
+ */
+
+/*!
+ *  This API can be invoked during any state to return the current device driver state.
+ */
+#define IAV_IOC_GET_IAV_STATE				IAVENC_IOR(IOC_STATE, u32)
+
+/*!
+ *  This API can be invoked during any state to retrieve chip ID information after the DSP is booted.
+ */
+#define IAV_IOC_GET_CHIP_ID				IAVENC_IOR(IOC_CHIP_ID, u32)
+
+/*!
+ *  This API sets the DSP log level for the debug.
+ */
+#define IAV_IOC_SET_DSP_LOG				IAVENC_IOW(IOC_DSP_LOG, struct iav_dsplog_setup *)
+
+/*!
+ *  This API can be used to return the current device driver state.
+ */
+#define IAV_IOC_DRV_DSP_INFO				IAVENC_IOWR(IOC_DSP_INFO, struct iav_driver_dsp_info *)
+
+#define IAV_IOC_GET_DSP_HASH				IAVENC_IOWR(IOC_DSP_HASH, struct iav_dsp_hash *)
+#define IAV_IOC_SET_DSP_VP_CFG				IAVENC_IOW(IOC_DSP_VP_CFG, struct iav_dsp_vp_cfg *)
+#define IAV_IOC_GET_DSP_VP_CFG				IAVENC_IOWR(IOC_DSP_VP_CFG, struct iav_dsp_vp_cfg *)
+
+/*!
+ *  This API can be invoked during any state to query IAV information such as
+ *  the boot mode, driver version, canvas, stream and privacy mask information.
+ */
+#define IAV_IOC_QUERY_INFO					IAVENC_IOWR(IOC_QUERY_INFO, struct iav_queryinfo *)
+
+/*! @} */  /* End of iav-ioc-enc-use-drv */
+
+/*!
+ * @addtogroup iav-ioc-enc-use-pyra
+ * @{
+ */
+/*!
+ *  This API can be used during the previewing or encoding states to feed pyramid
+ *  buffers in the pyramid manual-feed mode.
+ */
+#define IAV_IOC_FEED_PYRAMID_BUF				IAVENC_IOW(IOC_PYRAMID_BUF, struct iav_feed_pyramid *)
+
+/*!
+ *  This API can be used during any state to release the pyramid buffer locked
+ *  by IAV_IOC_QUERY_DESC (IAV_DESC_PYRAMID) in the pyramid manual-feed mode.
+ */
+#define IAV_IOC_RELEASE_PYRAMID_BUF			IAVENC_IOWR(IOC_PYRAMID_BUF, struct iav_pyramiddesc *)
+/*! @} */  /* End of iav-ioc-enc-use-pyra */
+
+
+/*!
+ * @addtogroup iav-ioc-enc-use-sys
+ * @{
+ */
+
+/*!
+ *  This API can be invoked to disable preview and if successful, it brings the
+ *  driver to enter the IDLE state.
+ */
+#define IAV_IOC_ENTER_IDLE					IAVENC_IOW(IOC_ENTER_IDLE, u8)
+
+/*!
+ *  This API can be invoked to enable preview and encoding can be started only
+ *  in the preview state.
+ */
+#define IAV_IOC_ENABLE_PREVIEW				IAVENC_IOW(IOC_ENABLE_PREVIEW, u8)
+
+/*!
+ *  This API can be invoked during the stream-ready state to start stream encoding.
+ *  Multiple streams can be encoded together if they are configured and in the
+ *  ready state.
+ */
+#define IAV_IOC_START_ENCODE				IAVENC_IOW(IOC_START_ENCODE, u32)
+
+/*!
+ *  This API can be invoked during the stream-encoding state to stop stream encoding.
+ *  Multiple streams can be stopped from encoding at the same time.
+ */
+#define IAV_IOC_STOP_ENCODE					IAVENC_IOW(IOC_STOP_ENCODE, u32)
+
+/*!
+ *  This API can be invoked during stream state transition from START to STOP or
+ *  from STOP to START. It is used to abort such transitions.
+ */
+#define IAV_IOC_ABORT_ENCODE				IAVENC_IOW(IOC_ABORT_ENCODE, u8)
+
+/*!
+ *  This API can be invoked during the IDLE state to setup the encoding related
+ *  system limit, which will otherwise have a default value.  It must be issued
+ *  before any of the APIs are called in the IDLE state.  The configuration of
+ *  the limit depends on how much memory has been allocated to DSP, how many
+ *  features the DSP needs to support, and which encode mode the application uses.
+ */
+#define IAV_IOC_SET_SYSTEM_RESOURCE			IAVENC_IOW(IOC_SYSTEM_RESOURCE, u8)
+
+/*!
+ *  This API can be invoked during any state to get encoding related system limit.
+ *  It is used to retrieve the default system resource limit for each encode mode.
+ */
+#define IAV_IOC_GET_SYSTEM_RESOURCE			IAVENC_IOWR(IOC_SYSTEM_RESOURCE, u8)
+
+/*!
+ *  This API can be invoked during the IDLE state to setup the pyramid related
+ *  configuration for a specified channel, which will otherwise have a default
+ *  value. It should be issued together with the system resource setup IOCTL.
+ */
+#define IAV_IOC_SET_PYRAMID_CFG				IAVENC_IOW(IOC_PYRAMID_CFG, u8)
+
+/*!
+ *  This API can be invoked during any state to get pyramid related
+ *  configuration for a specified channel.
+ */
+#define IAV_IOC_GET_PYRAMID_CFG				IAVENC_IOWR(IOC_PYRAMID_CFG, u8)
+
+/*!
+ *  This API can be invoked at any state to use the GDMA device to perform memory
+ *  copying between large memory partitions. As the GDMA device is a module dedi-
+ *  cated for memory copy, it can free up the CPU cycles.
+ *
+ *  The GDMA device must access contiguous physical memory addresses. It cannot
+ *  access any virtual memory space allocated by user applications, meaning that
+ *  this API cannot replace the general memory copy function "memcpy". The GDMA
+ *  device can support linear memory copy in one and two dimensions. For the two
+ *  dimensional copy, the pitch of the source and destination can be different,
+ *  but the total memory size needs to be identical.
+ *
+ *  The IAV driver supports the function of memory mapping from the physical
+ *  memory to the user's virtual memory for most IAV/DSP memory partitions and
+ *  all anonymous memory partitions, such as privacy mask, overlay, bit stream
+ *  buffer, DSP and so on. User applications can call a GDMA copy API to perform
+ *  memory copying among these memory partitions.
+ */
+#define IAV_IOC_GDMA_COPY					IAVENC_IOW(IOC_GDMA_COPY, struct iav_gdma_copy *)
+
+/*!
+ *  This API can be invoked during any state to query the system capability of each
+ *  function for the specified encode mode.
+ */
+#define IAV_IOC_QUERY_ENC_MODE_CAP			IAVENC_IOWR(IOC_QUERY_ENC_MODE_CAP, struct iav_enc_mode_cap *)
+
+/*!
+ *  This API can be invoked during any state to query the source buffer capability of
+ *  the specified buffer.
+ */
+#define IAV_IOC_QUERY_ENC_BUF_CAP			IAVENC_IOWR(IOC_QUERY_ENC_BUF_CAP, struct iav_enc_buf_cap *)
+/*! @} */  /* End of iav-ioc-enc-use-sys */
+
+/*!
+ * @addtogroup iav-ioc-enc-img-scale
+ * @{
+ */
+/*!
+ *  This API can be invoked during preview/encoding state to do arbitrary image scale.
+ *  For more information about arbitrary image scaler, refer to @ref ut_img_scale.
+ *
+ *  Application needs to prepare the memory for the input buffer and the output buffer
+ *  before calling image scale function.
+ */
+#define IAV_IOC_SET_IMG_SCALE			IAVENC_IOWR(IOC_IMG_SCALE, struct iav_img_scale *)
+
+/*!
+ *  This API can be invoked during preview/encoding state to wait for image scaling task finished.
+ *  @note
+ *  1. This API is invoked only when member param: non_block_flag in struct iav_img_scale is 1.
+ *  2. When ioctl IAV_IOC_SET_IMG_SCALE is invoked multiple times in non-blocking way, DSP will
+ *     process these taskes sequentially. So user applicate only needs to wait for the last image
+ *     scaling task. Once the last task finished, all other prior tasks are also finished.
+ */
+#define IAV_IOC_WAIT_IMG_SCALE			IAVENC_IOW(IOC_IMG_SCALE, struct iav_wait_img_scale *)
+
+/*! @} */  /* End of iav-ioc-enc-img-scale */
+
+/*!
+ * @addtogroup iav-ioc-enc-use-efm
+ * @{
+ */
+/*!
+ *  This API can be invoked during preview/encoding state to get EFM related
+ *  parameters.
+ */
+#define IAV_IOC_EFM_GET_POOL_INFO			IAVENC_IOR(IOC_EFM_PROC, struct iav_efm_get_pool_info *)
+
+/*!
+ *  This API can be invoked during preview/encoding state to get one EFM frame
+ *  for processing.
+ */
+#define IAV_IOC_EFM_REQUEST_FRAME			IAVENC_IOWR(IOC_EFM_PROC, struct iav_efm_request_frame *)
+
+/*!
+ *  This API can be invoked during preview/encoding state to trigger DSP to start
+ *  encoding the EFM stream.
+ */
+#define IAV_IOC_EFM_HANDSHAKE_FRAME			IAVENC_IOW(IOC_EFM_PROC, struct iav_efm_handshake_frame *)
+/*! @} */  /* End of iav-ioc-enc-use-efm */
+
+/*!
+ * @addtogroup iav-ioc-enc-use-efr
+ * @{
+ */
+/*!
+ *  This API can be invoked during IDLE state to set the raw encode config.
+ */
+#define IAV_IOC_SET_RAW_ENCODE				IAVENC_IOW(IOC_RAW_ENC, struct iav_raw_enc_setup *)
+
+/*!
+ *  This API can be invoked during ANY state to get raw encode config.
+ */
+#define IAV_IOC_GET_RAW_ENCODE				IAVENC_IOR(IOC_RAW_ENC, struct iav_raw_enc_setup *)
+
+/*!
+ *  This API can be invoked during ANY state to wait for the raw encode ready signal.
+ */
+#define IAV_IOC_WAIT_RAW_ENCODE				IAVENC_IOW(IOC_RAW_ENC, u8)
+
+/*! @} */  /* End of iav-ioc-enc-use-efr */
+
+/*!
+ * @addtogroup iav-ioc-enc-use-mem
+ * @{
+ */
+
+/*!
+ *  This API can be invoked during preview/encoding state to get one customized SEI buffer.
+ */
+#define IAV_IOC_CUSTOM_SEI_REQUEST_BUF			IAVENC_IOWR(IOC_CUSTOM_SEI_PROC, struct iav_custom_sei_request_buf *)
+
+/*!
+ *  This API queries the frame-based data descriptions. The frame-based data
+ *  includes frame bit stream data, frame statistic data, frame raw data, frame
+ *  YUV data, frame ME1 data, and bit stream info data for smart rate control library.
+ */
+#define IAV_IOC_QUERY_DESC					IAVENC_IOWR(IOC_QUERY_DESC, struct iav_querydesc *)
+
+/*!
+ *  This API queries the physical addresses for all the memory partitions shared
+ *  between IAV and user application and the memory blocks of all canvases inside
+ *  the DSP buffer.  The start addresses, lengths, and data offsets of all memory
+ *  partitions and canvases' YUV & ME are returned in information.
+ *
+ *  The application should further map the physical addresses into user space
+ *  virtual addresses, before operating the buffers.
+ */
+#define IAV_IOC_QUERY_MEMBLOCK				IAVENC_IOWR(IOC_QUERY_MEMBLOCK, struct iav_querymem *)
+
+/*!
+ *  This API can be used during any state to allocate the IAV/DSP sub-partitions.
+ */
+#define IAV_IOC_ALLOC_MEM_PART				IAVENC_IOWR(IOC_MEM_PART, u8)
+
+/*!
+ *  This API can be used during any state to allocate anonymous memory partitions.
+ *  It allows user applications to allocate their own physically continuous memory.
+ */
+#define IAV_IOC_ALLOC_ANON_MEM_PART			IAVENC_IOWR(IOC_MEM_PART, u32)
+
+/*!
+ *  This API can be used during any state to free up a specified IAV/DSP sub-
+ *  partition or an anonymous memory partition.
+ */
+#define IAV_IOC_FREE_MEM_PART				IAVENC_IOW(IOC_MEM_PART, struct iav_free_mem_part *)
+
+
+/*! @} */  /* End of iav-ioc-enc-use-mem */
+
+/*!
+ * @addtogroup iav-ioc-enc-use-stm
+ * @{
+ */
+
+/*!
+ *  This API can be invoked during the preview/encoding state to set stream configurations.
+ *  All run time changeable configurations can be set via this IOCTL.
+ */
+#define IAV_IOC_SET_STREAM_CONFIG			IAVENC_IOW(IOC_STREAM_CFG, struct iav_stream_cfg *)
+
+/*!
+ *  This API can be invoked during ANY state to get stream configurations.
+ */
+#define IAV_IOC_GET_STREAM_CONFIG			IAVENC_IOWR(IOC_STREAM_CFG, struct iav_stream_cfg *)
+
+/*!
+ *  This API can be invoked during the stream idle state to perform H.264
+ *  encoding configuration for a particular stream.
+ */
+#define IAV_IOC_SET_H264_CONFIG				IAVENC_IOW(IOC_H264_CFG, struct iav_h26x_cfg *)
+
+/*!
+ *  This API can be invoked during any state to read the H.264 encoding configuration.
+ */
+#define IAV_IOC_GET_H264_CONFIG				IAVENC_IOWR(IOC_H264_CFG, struct iav_h26x_cfg *)
+
+/*!
+ *  This API can be invoked during the stream idle state to perform H.265
+ *  encoding configuration for a particular stream.
+ */
+#define IAV_IOC_SET_H265_CONFIG				IAVENC_IOW(IOC_H265_CFG, struct iav_h26x_cfg *)
+
+/*!
+ *  This API can be invoked during any state to read the H.265 encoding configuration.
+ */
+#define IAV_IOC_GET_H265_CONFIG				IAVENC_IOWR(IOC_H265_CFG, struct iav_h26x_cfg *)
+
+/*!
+ *  This API can be invoked during the stream idle state to configure MJPEG
+ *  encoding quality and chrome format.  The quality of the MJPEG can be configured
+ *  while the streams are encoding.
+ *
+ *  In the CV22 implementation, MJPEG only supports YUV420 and mono-chrome format.
+ */
+#define IAV_IOC_SET_MJPEG_CONFIG			IAVENC_IOW(IOC_MJPEG_CFG, struct iav_mjpeg_cfg *)
+
+/*!
+ *  This API can be invoked during any state to read the MJPEG encoding quality
+ *  and chroma format.
+ */
+#define IAV_IOC_GET_MJPEG_CONFIG			IAVENC_IOWR(IOC_MJPEG_CFG, struct iav_mjpeg_cfg *)
+
+/*!
+ *  This API can be invoked during ANY state to get frame sync related parameters.
+ */
+#define IAV_IOC_GET_FRAME_SYNC_PROC			IAVENC_IOWR(IOC_FRAME_SYNC, struct iav_stream_cfg *)
+
+/*!
+ *  This API can be invoked during ANY state to configure frame sync related parameters.
+ */
+#define IAV_IOC_CFG_FRAME_SYNC_PROC			IAVENC_IOW(IOC_FRAME_SYNC, struct iav_stream_cfg *)
+
+/*!
+ *  This API can be invoked during ENCODING state to configure frame sync related
+ *  parameters.
+ */
+#define IAV_IOC_APPLY_FRAME_SYNC_PROC		IAVENC_IOW(IOC_FRAME_SYNC, u8)
+
+/*!
+ *  This API can be invoked during preview/encoding state to get the suggested FPS.
+ */
+#define IAV_IOC_GET_FPS_SUGGEST				IAVENC_IOWR(IOC_FPS_SUGGEST, struct iav_fps_suggest *)
+/*! @} */  /* End of iav-ioc-enc-use-stm */
+
+/*!
+ * @addtogroup iav-ioc-enc-use-ovl
+ * @{
+ */
+
+/*!
+ *  These API can be used to insert a selected picture into the video stream as
+ *  an overlay.  It is intended for the OSD overlay library use, and it is
+ *  supported by H.264, H. 265 and MJPEG.  Because the picture data is added to
+ *  the video data before encoding, it is also referred to as "OSD blending".
+ *
+ *  It is the responsibility of the application to draw different overlay content
+ *  in the memory partition.  The application needs to call the "mmap" system in
+ *  order to map the overlay memory partition before drawing the new content.
+ *
+ *  In CV22 implementation, the overlay is added to the source buffer. This means
+ *  that if the two streams share the same source buffer, the OSD overlay will
+ *  be affected. Refer to user guide documentation for details.
+ */
+#define IAV_IOC_SET_OVERLAY_INSERT			IAVENC_IOW(IOC_OVERLAY_INSERT, struct iav_overlay_insert *)
+
+/*!
+ *  This API can be used to retrieve the overlay information that has already
+ *  been inserted into the specified video stream.
+ */
+#define IAV_IOC_GET_OVERLAY_INSERT			IAVENC_IOWR(IOC_OVERLAY_INSERT, struct iav_overlay_insert *)
+
+/*!
+ *  This API is similar to IAV_IOC_SET_OVERLAY_INSERT. The only difference is
+ *  FastOSD: the API tells DSP the specific region and number of regions that
+ *  need to perform FastOSD.
+ */
+#define IAV_IOC_SET_FASTOSD_INSERT			IAVENC_IOW(IOC_FASTOSD_INSERT, struct iav_fastosd_insert *)
+
+/*!
+ *  This API can be used to retrieve the fast osd information that has already
+ *  been inserted into the specified video stream.
+ */
+#define IAV_IOC_GET_FASTOSD_INSERT			IAVENC_IOWR(IOC_FASTOSD_INSERT, struct iav_fastosd_insert *)
+/*! @} */  /* End of iav-ioc-enc-use-ovl */
+
+/*!
+ * @addtogroup iav-ioc-enc-use-vcap
+ * @{
+ */
+
+/*!
+ *  This API can be invoked during @b IDLE state to set the VCAP configuration.
+ */
+#define IAV_IOC_SET_VCAP_CFG				IAVENC_IOW(IOC_VCAP_CFG, struct iav_vcap_cfg *)
+
+/*!
+ *  This API can be invoked during @b ANY state to get the VCAP config.
+ */
+#define IAV_IOC_GET_VCAP_CFG				IAVENC_IOWR(IOC_VCAP_CFG, struct iav_vcap_cfg *)
+/*! @} */  /* End of iav-ioc-enc-use-vcap */
+
+/*!
+ * @addtogroup iav-ioc-enc-use-warp IAV WARP
+ * @{
+ */
+
+/*!
+ *  This API can be invoked during preview/encode state to configure the single
+ *  region warp parameters.
+ */
+#define IAV_IOC_CFG_WARP_CTRL				IAVENC_IOW(IOC_WARP_CTRL, struct iav_warp_ctrl *)
+
+/*!
+ *  This API can be invoked during preview/encode state to get the single region
+ *  warp parameters.
+ */
+#define IAV_IOC_GET_WARP_CTRL				IAVENC_IOWR(IOC_WARP_CTRL, struct iav_warp_ctrl *)
+
+/*!
+ *  This API can be invoked during the preview/encode state to APPLY single
+ *  region warp parameters.
+ */
+#define IAV_IOC_APPLY_WARP_CTRL				IAVENC_IOW(IOC_WARP_CTRL, u8)
+/*! @} */  /* End of iav-ioc-enc-use-warp */
+
+/*!
+ * @addtogroup iav-ioc-enc-use-vproc IAV VPROC
+ * @{
+ */
+
+/*!
+ *  This API can be invoked during ANY state to get configurations of Privacy Mask,
+ *  DPTZ(digital pan / tile / zoom), Canvas Channel Order, Multi-Channel Blend,
+ *  pyramid ROI and so on.
+ */
+#define IAV_IOC_GET_VIDEO_PROC				IAVENC_IOWR(IOC_VIDEO_PROC, struct iav_video_proc *)
+
+/*!
+ *  This API can be invoked during ANY state to configure Privacy Mask,
+ *  DPTZ(digital pan / tile / zoom), Canvas Channel Order, Multi-Channel Blend
+ *  and so on at run-time.  When all configurations are configured through this
+ *  API during PREVIEW/ENCODING state, API IAV_IOC_APPLY_VIDEO_PROC should be
+ *  invoked to kick off these configurations to DSP.
+ */
+#define IAV_IOC_CFG_VIDEO_PROC				IAVENC_IOW(IOC_VIDEO_PROC, struct iav_video_proc *)
+
+/*!
+ *  This API can be invoked during PREVIEW/ENCODING state to kick off the
+ *  configurations set by API IAV_IOC_CFG_VIDEO_PROC to DSP at run-time.
+ */
+#define IAV_IOC_APPLY_VIDEO_PROC			IAVENC_IOW(IOC_VIDEO_PROC, u8)
+/*! @} */  /* End of iav-ioc-enc-use-vproc */
+
+/*!
+ * @addtogroup iav-ioc-enc-use-vin
+ * @{
+ */
+
+/*!
+ *  This API can be invoked to set vin idsp cfg.
+ */
+#define IAV_IOC_SET_VIN_IDSP_CFG			IAVENC_IOW(IOC_VIN_IDSP, struct iav_vin_idsp_config *)
+
+/*!
+ *  This API can be invoked get the vin idsp cfg.
+ */
+#define IAV_IOC_GET_VIN_IDSP_CFG			IAVENC_IOWR(IOC_VIN_IDSP, struct iav_vin_idsp_config *)
+
+/*!
+ *  This API can be invoked to set idsp delay info
+ *  warp parameters.
+ */
+#define IAV_IOC_SET_VIN_IDSP_DELAY_INFO		IAVENC_IOW(IOC_VIN_IDSP, u8)
+
+/*!
+ *  This API can be invoked during the PREVIEW / ENCODING state to wait until the
+ *  next valid IDSP frame.  It is useful for applications that need to synchronize
+ *  with the IDSP frame rate.
+ *
+ *  For multi-channel cases, when the IDSP resampling frame rate feature is enabled
+ *  and the channels have different IDSP resampling frame rates, ensure the application
+ *  specifies the channel ID, because the next frame will need to wait. The application
+ *  can also specify a channel map for multi-channel cases. If this is the case,
+ *  the IAV driver will wait for the next frame of the channel with the lowest
+ *  IDSP frame rate.
+ */
+#define IAV_IOC_WAIT_NEXT_IDSP_FRAME		IAVENC_IOW(IOC_WAIT_IDSP_FRAME, u8)
+
+/*!
+ *  This API can be invoked during preview/encode state to get the single region
+ *  warp parameters.
+ */
+#define IAV_IOC_SET_VIN_COMPAND_CFG			IAVENC_IOW(IOC_VIN_COMP, struct iav_vin_compand_config *)
+
+/*!
+ *  This API can be invoked during preview/encode state to get the single region
+ *  warp parameters.
+ */
+#define IAV_IOC_GET_VIN_COMPAND_CFG			IAVENC_IOWR(IOC_VIN_COMP, struct iav_vin_compand_config *)
+/*! @} */  /* End of iav-ioc-enc-use-vin */
+
+/*!
+ * @addtogroup iav-ioc-enc-use-dbg
+ * @{
+ */
+/*!
+ *  This API can be invoked during any state to set the IAV debug configuration.
+ */
+#define IAV_IOC_SET_DEBUG_CONFIG			IAVENC_IOW(IOC_DEBUG, struct iav_debug_cfg *)
+
+/*!
+ *  This API can be invoked during any state to fetch the IAV debug configuration.
+ */
+#define IAV_IOC_GET_DEBUG_CONFIG			IAVENC_IOR(IOC_DEBUG, struct iav_debug_cfg *)
+/*! @} */  /* End of iav-ioc-enc-use-dbg */
+
+
+/*!
+ * @addtogroup iav-ioc-enc-use-usr
+ * @{
+ */
+
+/*!
+ *  This API can be invoked during any state for customized commands.
+ */
+#define IAV_IOC_CUSTOM_CMDS					IAVENC_IOWR(IOC_CUSTOM, u8)
+/*! @} */  /* End of iav-ioc-enc-use-usr */
+
+
+
+/*!
+ * @addtogroup iav-ioctl-dec-helper
+ * @{
+ */
+#define IAVDECIOC_MAGIC				'D'
+#define IAVDEC_IO(nr)				_IO(IAVDECIOC_MAGIC, nr)
+#define IAVDEC_IOR(nr, size)		_IOR(IAVDECIOC_MAGIC, nr, size)
+#define IAVDEC_IOW(nr, size)		_IOW(IAVDECIOC_MAGIC, nr, size)
+#define IAVDEC_IOWR(nr, size)		_IOWR(IAVDECIOC_MAGIC, nr, size)
+
+typedef enum {
+	/* For decode control (0x00 ~ 0x1F) */
+	IOC_ENTER_DECODE_MODE			= 0x00, /*!< 0x00,  For decode control (0x00 ~ 0x1F) */
+	IOC_LEAVE_DECODE_MODE			= 0x01, /*!< 0x01 */
+	IOC_CREATE_DECODER				= 0x02, /*!< 0x02 */
+	IOC_DESTROY_DECODER				= 0x03, /*!< 0x03 */
+	IOC_DECODE_START				= 0x04, /*!< 0x04 */
+	IOC_DECODE_STOP					= 0x05, /*!< 0x05 */
+	IOC_DECODE_VIDEO				= 0x06, /*!< 0x06 */
+	IOC_DECODE_JPEG					= 0x07, /*!< 0x07 */
+	IOC_WAIT_DECODE_BSB				= 0x08, /*!< 0x08 */
+	IOC_INTRAPLAY_RESET_BUFFERS		= 0x09, /*!< 0x09 */
+	IOC_INTRAPLAY_REQUEST_BUFFER	= 0x0A, /*!< 0x0A */
+	IOC_INTRAPLAY_DECODE			= 0x0B, /*!< 0x0B */
+	IOC_INTRAPLAY_YUV2YUV			= 0x0C, /*!< 0x0C */
+	IOC_INTRAPLAY_DISPLAY			= 0x0D, /*!< 0x0D */
+	IOC_DECODE_TRICK_PLAY			= 0x0E, /*!< 0x0E */
+	IOC_DECODE_SPEED				= 0x0F, /*!< 0x0F */
+	IOC_WAIT_PLAYBACK_EOS			= 0x10, /*!< 0x10 */
+
+	/* For decode status (0x30 ~ 0x3F) */
+	IOC_QUERY_DECODE_STATUS			= 0x30, /*!< 0x30, For decode status (0x30 ~ 0x3F) */
+	IOC_QUERY_DECODE_BSB			= 0x31, /*!< 0x31 */
+} IAV_DEC_IOC;
+
+/*! @} */ /* iav-ioctl-dec-helper */
+
+/*! @addtogroup iav-ioctl-dec-api
+ * @{
+ */
+
+/*!
+ *  This API can be invoked to allow the video to enter the decode mode.
+ *  This transition can only be done when the DSP is in the idle mode or after it boots up.
+ */
+#define IAV_IOC_ENTER_DECODE_MODE			IAVDEC_IOWR(IOC_ENTER_DECODE_MODE, struct iav_decode_mode_config *)
+
+/*!
+ *  This API can be invoked to leave the decode mode. Only when the DSP in the decode mode, this transition can be done.
+ *  It will make the DSP go into the idle mode.
+ */
+#define IAV_IOC_LEAVE_DECODE_MODE			IAVDEC_IO(IOC_LEAVE_DECODE_MODE)
+
+/*!
+ *  This API can be invoked to create a decoder instance.
+ *  Only when the DSP is in the decode mode, this API is valid.
+ */
+#define IAV_IOC_CREATE_DECODER				IAVDEC_IOWR(IOC_CREATE_DECODER, struct iav_decoder_info *)
+
+/*!
+ *  This API can be invoked to destroy a decoder instance and it is valid only when the DSP is in the decode mode.
+ */
+#define IAV_IOC_DESTROY_DECODER				IAVDEC_IOW(IOC_DESTROY_DECODER, u8)
+
+/*!
+ *  This API can be invoked to start the decode process and it is valid only when the DSP in the decode mode.
+ */
+#define IAV_IOC_DECODE_START				IAVDEC_IOW(IOC_DECODE_START, u8)
+
+/*!
+ *  This API can be invoked to stop the decode process and it is only valid when the DSP is in the decode mode.
+ */
+#define IAV_IOC_DECODE_STOP					IAVDEC_IOW(IOC_DECODE_STOP, struct iav_decode_stop *)
+
+
+/*!
+ *  This API can be invoked to decode the video bitstream.
+ *  It is only valid when DSP is in the decode mode.
+ */
+#define IAV_IOC_DECODE_VIDEO				IAVDEC_IOW(IOC_DECODE_VIDEO, struct iav_decode_video *)
+
+/*!
+ *  This API can be invoked to decode JPEG bit stream.
+ *  This API is valid only when the DSP is in the decode mode.
+ */
+#define IAV_IOC_DECODE_JPEG					IAVDEC_IOW(IOC_DECODE_JPEG, struct iav_decode_jpeg *)
+
+/*!
+ *  This API can be invoked for a wait-free zoom in the bitstream buffer.
+ *  This API is valid only when DSP is in the decode mode.
+ */
+#define IAV_IOC_WAIT_DECODE_BSB				IAVDEC_IOWR(IOC_WAIT_DECODE_BSB, struct iav_decode_bsb *)
+
+/*!
+ *  This API can be invoked to perform trick play in the playback.
+ *  It is only valid when the DSP is in the decode mode.
+ */
+#define IAV_IOC_DECODE_TRICK_PLAY			IAVDEC_IOW(IOC_DECODE_TRICK_PLAY, struct iav_decode_trick_play *)
+
+/*!
+ *  This API can be invoked to update the playback speed and direction.
+ *  This API is valid only when the DSP is in the decode mode.
+ */
+#define IAV_IOC_DECODE_SPEED				IAVDEC_IOW(IOC_DECODE_SPEED, struct iav_decode_speed *)
+
+/*!
+ *  This API can be invoked to query decoding status and it is only valid when the DSP is in the decode mode.
+ */
+#define IAV_IOC_QUERY_DECODE_STATUS			IAVDEC_IOR(IOC_QUERY_DECODE_STATUS, struct iav_decode_status *)
+
+/*!
+ *  This API can be invoked to query the bitstream buffer and it is only valid when the DSP is in the decode mode.
+ */
+#define IAV_IOC_QUERY_DECODE_BSB			IAVDEC_IOR(IOC_QUERY_DECODE_BSB, struct iav_decode_bsb *)
+
+/*!
+ *  This API can be invoked to wait until the total stream is decoded by DSP.  It is only valid when the DSP is in the decode mode.
+ */
+#define IAV_IOC_WAIT_PLAYBACK_EOS			IAVDEC_IOW(IOC_WAIT_PLAYBACK_EOS, struct iav_decode_wait_eos *)
+
+#define IAV_IOC_INTRAPLAY_RESET_BUFFERS		IAVDEC_IOW(IOC_INTRAPLAY_RESET_BUFFERS, struct iav_intraplay_reset_buffers *)
+#define IAV_IOC_INTRAPLAY_REQUEST_BUFFER	IAVDEC_IOWR(IOC_INTRAPLAY_REQUEST_BUFFER, struct iav_intraplay_frame_buffer *)
+#define IAV_IOC_INTRAPLAY_DECODE			IAVDEC_IOW(IOC_INTRAPLAY_DECODE, struct iav_intraplay_decode *)
+#define IAV_IOC_INTRAPLAY_YUV2YUV			IAVDEC_IOW(IOC_INTRAPLAY_YUV2YUV, struct iav_intraplay_yuv2yuv *)
+#define IAV_IOC_INTRAPLAY_DISPLAY			IAVDEC_IOW(IOC_INTRAPLAY_DISPLAY, struct iav_intraplay_display *)
+/*! @} */ /* End of iav-ioctl-dec-api */
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

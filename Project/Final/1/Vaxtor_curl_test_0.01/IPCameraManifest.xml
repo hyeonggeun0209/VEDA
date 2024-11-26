@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<manifest>
+    <appName>VaxALPR</appName>
+    <appLocation>/home/wisenet/eclipse-workspace</appLocation>
+    <appVersion>0.01</appVersion>
+    <minSDK>5.00</minSDK>
+    <targetSDK>5.00</targetSDK>
+    <maxSDK>5.00</maxSDK>
+    <debug>true</debug>
+    <vendor>Vaxtor Technologies</vendor>
+    <description/>
+    <platform>
+        <model>TNM-C4940TDR</model>
+    </platform>
+    <permissions>
+        1. Device
+        2. SDCard
+    </permissions>
+    <appConfigData>
+        <settings/>
+        <v2c/>
+        <new_v2c/>
+    </appConfigData>
+</manifest>

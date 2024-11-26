@@ -1,0 +1,80 @@
+@charset 'utf-8';
+/*ptz*/
+div.control_box01 {
+	position:relative;
+	width:160px;
+	margin:30px 0 0 67px;
+}
+	div.control_box01 div.control_img {
+		position:absolute;
+	}
+		div.control_box01 div.control_img div.control_remoto {
+			position:absolute;
+			top:64px;
+			left:61px;
+		}
+div.ptz_img {
+	position:relative;
+	overflow:hidden;
+	width:240px;
+	top:171px;
+	left:20px;
+}
+	div.ptz_img div.ptz_01 {
+		float:left;
+		margin-right:2px;
+	}
+	div.ptz_img div.ptz_02 {
+		float:left;
+		margin-right:36px;
+	}
+	div.ptz_img div.ptz_03 {
+		float:left;
+		margin-right:2px;
+	}
+	div.ptz_img div.ptz_04 {
+		float:left;
+	}
+div.size_box {
+	position:relative;
+	overflow:hidden;
+	width:240px;
+	left:20px;
+	top:183px;
+}
+	div.size_box div.minus {
+		float:left;
+	}
+	div.size_box div.plus {
+		float:right;
+	}
+div.minus_plus {
+	position:relative;
+	width:160px;
+	height:30px;
+	top:154px;
+	left:60px;
+	background:url('../images/common/control_bar02.gif') no-repeat 0 18px;
+}
+	div.minus_plus div.img_minus {
+		position:absolute;
+		top:4px;
+	}
+	div.minus_plus div.img_plus {
+		position:absolute;
+		left:154px;
+	}
+	div.minus_plus span.on {
+		position:absolute;
+		width:100%;
+		height:3px;
+		top:18px;
+		background:url('../images/common/bg_off.gif') no-repeat 0 0;
+	}
+	div.minus_plus span.point {
+		position:absolute;
+		width:9px;
+		height:38px;
+		left:50px;
+		background:url('../images/common/btn/btn_remote.gif') no-repeat 0 9px;
+	}

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<manifest>
+    <appName>test_anyvision</appName>
+    <appLocation>/home/mg_leem/Dev</appLocation>
+    <appVersion>1.0</appVersion>
+    <minSDK>3.60</minSDK>
+    <targetSDK>3.60</targetSDK>
+    <maxSDK>3.60</maxSDK>
+    <debug>false</debug>
+    <vendor>Hanwha Techwin</vendor>
+    <description/>
+    <platform>
+        <model>PNO9081</model>
+        <videoEncoding>
+            <codec>H.264</codec>
+            <resolution>1920 X 1080</resolution>
+            <frameRate>30</frameRate>
+            <compression>1</compression>
+            <bitRate>2560</bitRate>
+            <audio>false</audio>
+        </videoEncoding>
+    </platform>
+    <permissions/>
+    <appConfigData>
+        
+    </appConfigData>
+</manifest>

@@ -1,0 +1,1009 @@
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <fcntl.h>
+#include <time.h>
+#include <errno.h>
+#include <unistd.h>
+
+
+
+#include <SDKAPI/opensdk_defines.h>
+#include <SDKAPI/opensdk_device.h>
+#include <SDKAPI/opensdk_profile.h>
+#include <SDKAPI/opensdk_ptz.h>
+#include <SDKAPI/opensdk_record.h>
+#include <SDKAPI/opensdk_videoanalytics.h>
+#include <SDKAPI/opensdk_videosetup.h>
+
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <sys/signal.h>
+
+#include <iav_ioctl.h>
+#include "datatx_lib.h"
+
+
+#define ROUND_UP(size, align) (((size) + ((align) - 1)) & ~((align) - 1))
+#define MAX_YUV_BUFFER_SIZE		(4096*3000)		// 4096x3000
+#define HWTIMER_OUTPUT_FREQ	(90000)
+
+
+
+typedef enum
+{
+    RESOLUTION_3840X2160 = 0,
+    RESOLUTION_1920X1080,
+    RESOLUTION_960X540,
+    RESOLUTION_480X270,
+}RESOLUTION_PYRAMID_BUFFER;
+
+typedef enum
+{
+	CAPTURE_NONE = 255,
+	CAPTURE_PREVIEW_BUFFER = 0,
+	CAPTURE_ME1_BUFFER,
+	CAPTURE_ME0_BUFFER,
+	CAPTURE_RAW_BUFFER,
+	CAPTURE_PYRAMID_BUFFER,
+	CAPTURE_TYPE_NUM,
+} CAPTURE_TYPE;
+
+typedef enum {
+	YUV420_IYUV = 0,	// Pattern: YYYYYYYYUUVV
+	YUV420_YV12 = 1,	// Pattern: YYYYYYYYVVUU
+	YUV420_NV12 = 2,	// Pattern: YYYYYYYYUVUV
+	YUV422_YU16 = 3,	// Pattern: YYYYYYYYUUUUVVVV
+	YUV422_YV16 = 4,	// Pattern: YYYYYYYYVVVVUUUU
+	YUV422_NV16 = 5,	// Pattern: YYYYYYYYUVUVUVUV
+	YUV444 = 6,
+	YUV_FORMAT_TOTAL_NUM,
+	YUV_FORMAT_FIRST = YUV420_IYUV,
+	YUV_FORMAT_LAST = YUV_FORMAT_TOTAL_NUM,
+} YUV_FORMAT;
+
+typedef struct {
+	unsigned char *in;
+	unsigned char *u;
+	unsigned char *v;
+	unsigned long long row;
+	unsigned long long col;
+	unsigned long long pitch;
+} yuv_neon_arg;
+
+int fd_iav = -1;
+
+int decode_mode = 0;
+
+unsigned int current_channel = 0;
+char filename[256];
+int capture_select = 0;
+int pyramid_buffer_map = 0;
+int frame_count = 1;
+
+
+int dump_canvas_map = 0;
+unsigned char* dsp_canvas_yuv_buf_mem[IAV_MAX_CANVAS_BUF_NUM];
+unsigned char* dsp_canvas_me_buf_mem[IAV_MAX_CANVAS_BUF_NUM];
+unsigned int dsp_canvas_yuv_buf_size[IAV_MAX_CANVAS_BUF_NUM];
+unsigned int dsp_canvas_yuv_offset[IAV_MAX_CANVAS_BUF_NUM];
+unsigned int dsp_canvas_me_buf_size[IAV_MAX_CANVAS_BUF_NUM];
+unsigned int dsp_canvas_me_offset[IAV_MAX_CANVAS_BUF_NUM];
+
+int fd_pyramid[IAV_MAX_PYRAMID_LAYERS];
+
+int verbose = 0;
+struct timeval pre = {0, 0}, curr = {0, 0};
+unsigned int pyramid_manual_feed = 0;
+unsigned int gdma_dst_buf_pid = 0;
+unsigned int gdma_dst_buf_size = 0;
+unsigned int dsp_buf_mapped = 0;
+unsigned char* pyramid_pool_buf = NULL;
+
+unsigned char *dsp_mem = NULL;
+unsigned int dsp_size = 0;
+
+unsigned char* gdma_dst_buf = NULL;
+int quit_capture = 0;
+int non_block_read = 0;
+
+unsigned char* dsp_pyramid_buf = NULL;
+unsigned int dsp_pyramid_buf_size = 0;
+unsigned int pyramid_pool_buf_size = 0;
+unsigned int pyramid_pool_buf_mapped = 0;
+
+int G_multi_vin_num = 1;
+int G_canvas_num = 1;
+
+unsigned int pts_intval[IAV_MAX_CANVAS_BUF_NUM];
+
+unsigned long long preTime = 0;
+unsigned long long currTime = 0;
+
+
+
+
+
+
+
+
+
+//int yuv_format = YUV420_IYUV;
+int yuv_format = YUV420_NV12;
+
+
+
+
+static int transfer_method = TRANS_METHOD_NFS;
+#define YUVCAP_PORT					(2024)
+int port = YUVCAP_PORT;
+
+
+//extern void chrome_convert(yuv_neon_arg *);
+//extern void chrome_UV22_convert_to_UV44(yuv_neon_arg *);
+//extern void chrome_UV20_convert_to_UV44(yuv_neon_arg *);
+
+
+
+
+
+
+
+
+/**
+*@ ********************************************************************
+*@ Name           : recv_event                                        *
+*@ Description    : Receives input event from camera SDK              *
+*@ Arguments      : eventIn[IN]: Input event type                     *
+*@                : pData[IN]  : Data for input event                 *
+*@ Return Value   : N/A                                               *
+*@ Notes          :                                                   *
+*@ Change History :                                                   *
+*@ ********************************************************************
+**/
+void recv_event(OPENSDK_INPUT_EVENT eventIn, void* pData)
+{
+    //Handle the input events here
+    switch(eventIn) {
+        default:
+        {
+            debug_message("Unknown event %d occurred\n", eventIn);
+            break;
+        }
+    }
+
+    return;
+}
+/**
+*@ ********************************************************************
+*@ Name           : recv_data                                         *
+*@ Description    : Receives data from camera SDK                     *
+*@ Arguments      : payload_request[IN]: Request from web page        *
+*@                : payload_response[OUT]  : Response to web page     *
+*@ Return Value   : N/A                                               *
+*@ Notes          :                                                   *
+*@ Change History :                                                   *
+*@ ********************************************************************
+**/
+OPENSDK_ERR_CODE recv_data(void *payload_request,
+                           void *payload_response)
+{
+    OPENSDK_PAYLOAD_REQUEST*  req_payload;
+    OPENSDK_PAYLOAD_RESPONSE* res_payload;
+    OPENSDK_ERR_CODE          errCode;
+    
+    //Initialize local variable
+    errCode = OPENSDK_APP_OK;
+    
+    //Get the request & response pointer
+    req_payload = (OPENSDK_PAYLOAD_REQUEST*)payload_request;
+    res_payload = (OPENSDK_PAYLOAD_RESPONSE*)payload_response;
+    
+    debug_message("Request from web page: %s and len %d\n", 
+                req_payload->pBuff, req_payload->pBufLen);
+    
+    //Process request & send response
+    
+    return errCode;
+}
+
+void GetMillisecondsTime(unsigned long long *millisec)
+{
+   struct timeval tv;
+   gettimeofday(&tv, NULL);
+   *millisec = (unsigned long long)(tv.tv_sec) * 1000 + (unsigned long long)(tv.tv_usec) / 1000;
+}
+
+static int check_state(void)
+{
+	int state;
+	if (ioctl(fd_iav, IAV_IOC_GET_IAV_STATE, &state) < 0) {
+		debug_message("IAV_IOC_GET_IAV_STATE");
+		exit(2);
+	}
+
+	if ((state != IAV_STATE_PREVIEW) && (state != IAV_STATE_ENCODING) &&
+		(state != IAV_STATE_DECODING)) {
+		debug_message("IAV is not in preview / encoding /decoding state, cannot get yuv buf!\n");
+		return -1;
+	}
+
+	if (state == IAV_STATE_DECODING) {
+		decode_mode = 1;
+	}
+
+	return 0;
+}
+
+static int init_param(void)
+{
+	unsigned int min_value, max_value;
+	int ch, i, option_index = 0;
+
+	opterr = 0;
+		
+	current_channel = 0;  // case 'c'
+
+  strcpy(filename, "raw_image");  // case 'f'
+
+  capture_select = CAPTURE_PYRAMID_BUFFER;  //case 'P'
+  min_value = RESOLUTION_3840X2160;
+  max_value = RESOLUTION_3840X2160;
+  
+  for (int i = min_value; i <= max_value; ++i)
+  {
+	  pyramid_buffer_map |= (1 << i);
+	}
+	
+
+  frame_count = 5; // case 'r'
+
+	return 0;
+}
+
+
+static int get_resource_info(void)
+{
+	struct iav_system_resource resource;
+	struct iav_pyramid_cfg pyramid_cfg;
+	u8 i, frame_rate;
+
+	// system resource
+	memset(&resource, 0, sizeof(struct iav_system_resource));
+	resource.encode_mode = DSP_CURRENT_MODE;
+	if (ioctl(fd_iav, IAV_IOC_GET_SYSTEM_RESOURCE, &resource) < 0) {
+		perror("IAV_IOC_GET_SYSTEM_RESOURCE\n");
+		return -1;
+	}
+
+	G_multi_vin_num = resource.chan_num;
+	G_canvas_num = resource.canvas_num;
+
+	for (i = 0; i < IAV_MAX_CANVAS_BUF_NUM; i++) {
+		frame_rate = resource.canvas_cfg[i].frame_rate;
+		if (frame_rate != 0) {
+			pts_intval[i] = HWTIMER_OUTPUT_FREQ / frame_rate;
+		}
+	}
+
+	if (current_channel < G_multi_vin_num) {
+		memset(&pyramid_cfg, 0, sizeof(struct iav_pyramid_cfg));
+		pyramid_cfg.chan_id = current_channel;
+		if (ioctl(fd_iav, IAV_IOC_GET_PYRAMID_CFG, &pyramid_cfg) < 0) {
+			perror("IAV_IOC_GET_PYRAMID_CFG\n");
+			return -1;
+		}
+		pyramid_manual_feed = pyramid_cfg.manual_feed;
+	} else {
+		printf("The channel_id[%d] cannot excess channel_num[%d]\n",
+			current_channel, G_multi_vin_num);
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+static int map_canvas_buffers(void)
+{
+	struct iav_querymem query_mem;
+	struct iav_mem_canvas_info *canvas_info;
+	int i;
+
+	query_mem.mid = IAV_MEM_CANVAS;
+	query_mem.arg.canvas.id_map = dump_canvas_map;
+	if (ioctl(fd_iav, IAV_IOC_QUERY_MEMBLOCK, &query_mem) < 0) {
+		debug_message("IAV_IOC_QUERY_MEMBLOCK");
+		return -1;
+	}
+	canvas_info = &query_mem.arg.canvas;
+
+	memset(dsp_canvas_yuv_buf_mem, 0, sizeof(dsp_canvas_yuv_buf_mem));
+	memset(dsp_canvas_me_buf_mem, 0, sizeof(dsp_canvas_me_buf_mem));
+	for (i = 0; i < IAV_MAX_CANVAS_BUF_NUM; ++i) {
+		if (dump_canvas_map & (1 << i)) {
+			dsp_canvas_yuv_buf_size[i] = canvas_info->yuv[i].length;
+			dsp_canvas_yuv_offset[i] = canvas_info->yuv[i].offset;
+			if (canvas_info->yuv[i].addr) {
+				dsp_canvas_yuv_buf_mem[i] = (unsigned char*)mmap(NULL, dsp_canvas_yuv_buf_size[i],
+					PROT_READ, MAP_SHARED, fd_iav, canvas_info->yuv[i].addr);
+				if (dsp_canvas_yuv_buf_mem[i] == MAP_FAILED) {
+					debug_message("mmap failed\n");
+					return -1;
+				}
+			}
+			dsp_canvas_me_buf_size[i] = canvas_info->me[i].length;
+			dsp_canvas_me_offset[i] = canvas_info->me[i].offset;
+			if (canvas_info->me[i].addr) {
+				dsp_canvas_me_buf_mem[i] = (unsigned char*)mmap(NULL, dsp_canvas_me_buf_size[i],
+					PROT_READ, MAP_SHARED, fd_iav, canvas_info->me[i].addr);
+				if (dsp_canvas_me_buf_mem[i] == MAP_FAILED) {
+					debug_message("mmap failed\n");
+					return -1;
+				}
+			}
+		}
+	}
+
+	return 0;
+}
+*/
+
+static int map_dsp_buffer(void)
+{
+	struct iav_querymem query_mem;
+	struct iav_mem_part_info *part_info;
+
+	memset(&query_mem, 0, sizeof(query_mem));
+	query_mem.mid = IAV_MEM_PARTITION;
+	part_info = &query_mem.arg.partition;
+	part_info->pid = IAV_PART_DSP;
+	if (ioctl(fd_iav, IAV_IOC_QUERY_MEMBLOCK, &query_mem) < 0) {
+		perror("IAV_IOC_QUERY_MEMBLOCK");
+		return -1;
+	}
+
+	dsp_size = part_info->mem.length;
+	dsp_mem = (unsigned char*)mmap(NULL, dsp_size, PROT_READ, MAP_SHARED, fd_iav,
+		part_info->mem.addr);
+	if (dsp_mem == MAP_FAILED) {
+		perror("mmap IAV_PART_DSP failed\n");
+		return -1;
+	}
+	dsp_buf_mapped = 1;
+
+	memset(&query_mem, 0, sizeof(query_mem));
+	query_mem.mid = IAV_MEM_PARTITION;
+	part_info = &query_mem.arg.partition;
+	part_info->pid = IAV_PART_PYRAMID_POOL;
+	if (ioctl(fd_iav, IAV_IOC_QUERY_MEMBLOCK, &query_mem) < 0) {
+		perror("IAV_IOC_QUERY_MEMBLOCK");
+		return -1;
+	}
+	dsp_pyramid_buf_size = part_info->mem.length;
+	if (dsp_pyramid_buf_size) {
+		printf("user buffer size(0x%x) > 0, GDMA will be used\n", dsp_pyramid_buf_size);
+		dsp_pyramid_buf = (unsigned char*)mmap(NULL, dsp_pyramid_buf_size, PROT_READ | PROT_WRITE, MAP_SHARED,
+			fd_iav, part_info->mem.addr);
+		if (dsp_pyramid_buf == MAP_FAILED) {
+			perror("mmap IAV_PART_PYRAMID_POOL failed\n");
+			return -1;
+		}
+	}
+
+	if ((capture_select == CAPTURE_PYRAMID_BUFFER) && pyramid_manual_feed) {
+		memset(&query_mem, 0, sizeof(query_mem));
+		query_mem.mid = IAV_MEM_PARTITION;
+		part_info = &query_mem.arg.partition;
+		part_info->pid = IAV_PART_PYRAMID_POOL;
+		if (ioctl(fd_iav, IAV_IOC_QUERY_MEMBLOCK, &query_mem) < 0) {
+			perror("IAV_IOC_QUERY_MEMBLOCK");
+			return -1;
+		}
+
+		pyramid_pool_buf_size = part_info->mem.length;
+		if (pyramid_pool_buf_size) {
+			pyramid_pool_buf = (unsigned char*)mmap(NULL, pyramid_pool_buf_size, PROT_READ, MAP_SHARED, fd_iav,
+				part_info->mem.addr);
+			if (pyramid_pool_buf == MAP_FAILED) {
+				perror("mmap IAV_PART_PYRAMID_POOL failed\n");
+				return -1;
+			}
+			pyramid_pool_buf_mapped = 1;
+		}
+	}
+
+	return 0;
+}
+
+static int alloc_gdma_dst_buf(u32 size)
+{
+	struct iav_alloc_mem_part alloc_mem_part;
+	struct iav_querymem query_mem;
+	struct iav_mem_part_info *part_info;
+
+	alloc_mem_part.length = size;
+	alloc_mem_part.enable_cache = 1;
+	if (ioctl(fd_iav, IAV_IOC_ALLOC_ANON_MEM_PART, &alloc_mem_part) < 0) {
+		debug_message("IAV_IOC_ALLOC_ANON_MEM_PART");
+		return -1;
+	}
+	gdma_dst_buf_pid = alloc_mem_part.pid;
+
+	memset(&query_mem, 0, sizeof(query_mem));
+	query_mem.mid = IAV_MEM_PARTITION;
+	part_info = &query_mem.arg.partition;
+	part_info->pid = gdma_dst_buf_pid;
+	if (ioctl(fd_iav, IAV_IOC_QUERY_MEMBLOCK, &query_mem) < 0) {
+		debug_message("IAV_IOC_QUERY_MEMBLOCK");
+		return -1;
+	}
+
+	gdma_dst_buf_size = part_info->mem.length;
+	if (gdma_dst_buf_size) {
+		gdma_dst_buf = (unsigned char*)mmap(NULL, gdma_dst_buf_size, PROT_READ | PROT_WRITE, MAP_SHARED,
+			fd_iav, part_info->mem.addr);
+		if (gdma_dst_buf == MAP_FAILED) {
+			debug_message("mmap gdma dst buffer failed\n");
+			return -1;
+		}
+	}
+
+	return 0;
+
+}
+
+static unsigned char* get_buffer_base(int buf_id, int me_flag)
+{
+	unsigned char* addr = NULL;
+
+	if (buf_id < 0 || buf_id >= IAV_MAX_CANVAS_BUF_NUM) {
+		printf("Invaild canvas buf ID %d!\n", buf_id);
+		return NULL;
+	}
+	if (dump_canvas_map & (1 << buf_id)) {
+		if (me_flag) {
+			addr = dsp_canvas_me_buf_mem[buf_id];
+		} else {
+			addr = dsp_canvas_yuv_buf_mem[buf_id];
+		}
+	} else {
+		if ((capture_select == CAPTURE_PYRAMID_BUFFER) && pyramid_manual_feed) {
+			addr = pyramid_pool_buf;
+		} else {
+			addr = dsp_mem;
+		}
+	}
+	return addr;
+}
+
+static int save_yuv_luma_buffer(int buf_id, u8* output,
+	struct iav_yuv_cap *yuv_cap)
+{
+	int i;
+	unsigned char *in = NULL;
+	unsigned char *out = NULL;
+	unsigned char *base = NULL, *y_addr = NULL;
+
+	if (yuv_cap->pitch < yuv_cap->width) {
+		printf("pitch size smaller than width!\n");
+		return -1;
+	}
+
+	if (gdma_dst_buf_size && dsp_buf_mapped) {
+    printf("(gdma_dst_buf_size && dsp_buf_mapped)\n");
+		base = gdma_dst_buf;
+		y_addr = base;
+	} else {
+  	//printf("get_buffer_base(buf_id, 0)\n"); !!! HERE !!!
+		base = get_buffer_base(buf_id, 0);
+		y_addr = base + yuv_cap->y_addr_offset;
+	}
+
+	if (base == NULL) {
+		printf("Invalid buffer address for buffer %d YUV! Map YUV buffer "
+			"from DSP first.\n", buf_id);
+		return -1;
+	}
+
+	if (yuv_cap->pitch == yuv_cap->width) {
+		memcpy(output, y_addr, yuv_cap->width * yuv_cap->height);
+	} else {
+		in = y_addr;
+		out = output;
+		for (i = 0; i < yuv_cap->height; i++) {		//row
+			memcpy(out, in, yuv_cap->width);
+			in += yuv_cap->pitch;
+			out += yuv_cap->width;
+		}
+	}
+
+	return 0;
+}
+
+static int save_yuv_chroma_buffer(int buf_id, u8* output,
+	struct iav_yuv_cap *yuv_cap)
+{
+	int width, height, pitch;
+	u8* input = NULL;
+	u8 *base = NULL, *uv_addr = NULL;
+	int i, format;
+	yuv_neon_arg yuv;
+	int ret = 0;
+
+	if (gdma_dst_buf_size && dsp_buf_mapped) {
+		base = gdma_dst_buf;
+		uv_addr = base + yuv_cap->pitch * ROUND_UP(yuv_cap->height, 16);
+	} else {
+		base = get_buffer_base(buf_id, 0);
+		uv_addr = base + yuv_cap->uv_addr_offset;
+	}
+
+	if (base == NULL) {
+		printf("Invalid buffer address for buffer %d YUV! Map YUV buffer "
+			"from DSP first.\n", buf_id);
+		return -1;
+	}
+
+	format = yuv_format;
+  
+	// input yuv is uv interleaved with padding (uvuvuvuv.....)
+	if (yuv_cap->format == IAV_YUV_FORMAT_YUV420) {
+		width = yuv_cap->width / 2;
+		height = yuv_cap->height / 2;
+		pitch = yuv_cap->pitch / 2;
+		yuv.in = uv_addr;
+		yuv.row = height;
+		yuv.col = yuv_cap->width;
+		yuv.pitch = yuv_cap->pitch;
+		if (format == YUV420_YV12) {
+			// YV12 format (YYYYYYYYVVUU)
+			yuv.u = output + width * height;
+			yuv.v = output;
+			//chrome_convert(&yuv);
+		} else if (format == YUV420_IYUV) {
+			// IYUV (I420) format (YYYYYYYYUUVV)
+			yuv.u = output;
+			yuv.v = output + width * height;
+      printf("chrome_convert(&yuv);\n");
+			//chrome_convert(&yuv);
+		} else if (format == YUV444) {
+			yuv.u = output;
+			yuv.v = output + yuv_cap->width * yuv_cap->height;
+			//chrome_UV20_convert_to_UV44(&yuv);
+		} else {
+			if (format != YUV420_NV12) {
+				printf("Change output format back to NV12 for encode!\n");
+				format = YUV420_NV12;
+			}
+			// NV12 format (YYYYYYYYUVUV)
+			input = uv_addr;
+			for (i = 0; i < height; ++i) {
+				memcpy(output + i * width * 2, input + i * pitch * 2,
+					width * 2);
+			}
+		}
+	} else if (yuv_cap->format == IAV_YUV_FORMAT_YUV422) {
+		width = yuv_cap->width / 2;
+		height = yuv_cap->height;
+		pitch = yuv_cap->pitch / 2;
+		yuv.in = uv_addr;
+		yuv.row = height;
+		yuv.col = yuv_cap->width;
+		yuv.pitch = yuv_cap->pitch;
+    
+		if (format == YUV422_YU16) {
+			yuv.u = output;
+			yuv.v = output + width * height;
+      printf("chrome_convert(&yuv); YUV422_YU16\n");
+			//chrome_convert(&yuv);
+		} else if (format == YUV422_NV16){
+			// NV16 format (YYYYYYYYUVUVUVUV)
+			input = uv_addr;
+			for (i = 0; i < height; ++i) {
+				memcpy(output + i * width * 2, input + i * pitch * 2, width * 2);
+			}
+		} else if (format == YUV444) {
+			yuv.u = output;
+			yuv.v = output + yuv_cap->width * yuv_cap->height;
+      printf("chrome_UV22_convert_to_UV44(&yuv);!\n");
+			//chrome_UV22_convert_to_UV44(&yuv);
+		} else {
+			if (format != YUV422_YV16) {
+				printf("Change output format back to YV16 for preview!\n");
+				format = YUV422_YV16;
+			}
+			yuv.u = output + width * height;
+			yuv.v = output;
+      printf("chrome_convert(&yuv);else\n");
+			//chrome_convert(&yuv);
+		}
+	} else {
+		printf("Error: Unsupported YUV input format!\n");
+		ret = -1;
+	}
+
+	return ret;
+}
+
+static int save_yuv_data(int fd, int buf_id, struct iav_yuv_cap *yuv_cap,
+	u8 *luma, u8 *chroma)
+{
+	static int pts_prev = 0, pts = 0;
+	int luma_size, chroma_size;
+
+	luma_size = yuv_cap->width * yuv_cap->height;
+	if (yuv_cap->format == IAV_YUV_FORMAT_YUV420) {
+		if (yuv_format == YUV444) {
+			chroma_size = luma_size << 1;
+		} else {
+			chroma_size = luma_size >> 1;
+		}
+	} else if (yuv_cap->format == IAV_YUV_FORMAT_YUV422) {
+		if (yuv_format == YUV444) {
+			chroma_size = luma_size << 1;
+		} else {
+			chroma_size = luma_size;
+		}
+	} else {
+		printf("Error: Unrecognized yuv data format from DSP!\n");
+		return -1;
+	}
+
+	/* Save YUV data into memory */
+	if (verbose) {
+		gettimeofday(&curr, NULL);
+		pre = curr;
+	}
+
+	if (save_yuv_luma_buffer(buf_id, luma, yuv_cap) < 0) {
+		perror("Failed to save luma data into buffer !\n");
+		return -1;
+	}
+	if (verbose) {
+		gettimeofday(&curr, NULL);
+		printf("22. Save Y [%06ld us].\n", (curr.tv_sec - pre.tv_sec) *
+			1000000 + (curr.tv_usec - pre.tv_usec));
+		pre = curr;
+	}
+
+	if (save_yuv_chroma_buffer(buf_id, chroma, yuv_cap) < 0) {
+		perror("Failed to save chroma data into buffer !\n");
+		return -1;
+	}
+	if (verbose) {
+		gettimeofday(&curr, NULL);
+		printf("33. Save UV [%06ld us].\n", (curr.tv_sec - pre.tv_sec) *
+			1000000 + (curr.tv_usec - pre.tv_usec));
+	}
+
+	/* Write YUV data from memory to file */
+  
+	if (amba_transfer_write(fd, luma, luma_size, transfer_method) < 0) {
+		perror("Failed to save luma data into file !\n");
+		return -1;
+	}
+	if (amba_transfer_write(fd, chroma, chroma_size, transfer_method) < 0) {
+		perror("Failed to save chroma data into file !\n");
+		return -1;
+	}
+
+	if (verbose) {
+		pts = yuv_cap->mono_pts;
+		printf("BUF [%d] Y 0x%08x, UV 0x%08x, pitch %u, %ux%u = Seqnum[%u], "
+			"PTS [%u-%u].\n", buf_id, (u32)yuv_cap->y_addr_offset,
+			(u32)yuv_cap->uv_addr_offset, yuv_cap->pitch, yuv_cap->width,
+			yuv_cap->height, yuv_cap->seq_num, pts, (pts - pts_prev));
+		pts_prev = pts;
+	}
+
+	return 0;
+}
+
+static int free_gdma_dst_buf(void)
+{
+	struct iav_free_mem_part free_mem_part;
+
+	if (gdma_dst_buf && gdma_dst_buf_size) {
+		munmap(gdma_dst_buf, gdma_dst_buf_size);
+	}
+	gdma_dst_buf = NULL;
+	gdma_dst_buf_size = 0;
+
+	free_mem_part.pid = gdma_dst_buf_pid;
+	if (ioctl(fd_iav, IAV_IOC_FREE_MEM_PART, &free_mem_part) < 0) {
+		perror("IAV_IOC_FREE_MEM_PART");
+		return -1;
+	}
+	gdma_dst_buf_pid = 0;
+
+	return 0;
+}
+
+static int capture_pyramid(int pyramid_map, int count)
+{
+	int i, buf;
+	char pyramid_file[320];
+	int non_stop = 0, curr_format;
+	unsigned char * luma = NULL;
+	unsigned char * chroma = NULL;
+	char format[32];
+	struct iav_querydesc query_desc;
+	struct iav_yuv_cap *pyramid_cap;
+	struct iav_gdma_copy gdma_copy = {0};
+	struct iav_feed_pyramid feed_pyramid;
+	int yuv_buffer_size = 0;
+	int rval = 0;
+
+  printf("capture_pyramid !\n");
+
+	do {
+		luma = (unsigned char *)malloc(MAX_YUV_BUFFER_SIZE);
+		if (luma == NULL) {
+			printf("Not enough memory for pyramid capture !\n");
+			rval = -1;
+			break;
+		}
+		chroma = (unsigned char *)malloc(MAX_YUV_BUFFER_SIZE);
+		if (chroma == NULL) {
+			printf("Not enough memory for pyramid capture !\n");
+			rval = -1;
+			break;
+		}
+		memset(luma, 1, MAX_YUV_BUFFER_SIZE);
+		memset(chroma, 1, MAX_YUV_BUFFER_SIZE);
+
+		if (count == 0) {
+			non_stop = 1;
+		}
+
+		i = 0;
+		while ((i < count || non_stop) && !quit_capture) {
+
+      GetMillisecondsTime(&currTime);
+      preTime = currTime;
+      
+			memset(&query_desc, 0, sizeof(query_desc));
+			query_desc.qid = IAV_DESC_PYRAMID;
+			query_desc.arg.pyramid.chan_id = current_channel;
+			if (!non_block_read) {
+				query_desc.arg.pyramid.non_block_flag &= ~IAV_BUFCAP_NONBLOCK;
+			} else {
+				query_desc.arg.pyramid.non_block_flag |= IAV_BUFCAP_NONBLOCK;
+			}
+
+			if (verbose) {
+				gettimeofday(&curr, NULL);
+				pre = curr;
+			}
+
+			if (pyramid_manual_feed) {
+				feed_pyramid.chan_id = current_channel;
+				if (ioctl(fd_iav, IAV_IOC_FEED_PYRAMID_BUF, &feed_pyramid) < 0) {
+					perror("IAV_IOC_FEED_PYRAMID_BUF");
+					rval = -1;
+					break;
+				}
+			}
+
+			if (ioctl(fd_iav, IAV_IOC_QUERY_DESC, &query_desc) < 0) {
+				if (errno == EINTR) {
+					continue;		/* back to for() */
+				} else {
+					perror("IAV_IOC_QUERY_DESC");
+					rval = -1;
+					break;
+				}
+			}
+			if (verbose) {
+				gettimeofday(&curr, NULL);
+				printf("11. Query DESC [%06ld us].\n", 1000000 *
+					(curr.tv_sec - pre.tv_sec)  + (curr.tv_usec - pre.tv_usec));
+			}
+
+			for (buf = 0; buf < IAV_MAX_PYRAMID_LAYERS; ++buf) {
+				if ((pyramid_map & (1 << buf)) == 0) {
+					continue;
+				}
+
+				if ((query_desc.arg.pyramid.layers_map & (1 << buf)) == 0) {
+					printf("Pyramid channel %d: layer %d is not switched on\n",
+						current_channel, buf);
+					continue;
+				}
+
+				pyramid_cap = &query_desc.arg.pyramid.layers[buf];
+				if (fd_pyramid[buf] < 0) {
+					memset(pyramid_file, 0, sizeof(pyramid_file));
+					sprintf(pyramid_file, "/work/%s_chan_%d_%d_%dx%d.yuv", filename, current_channel,
+						buf, pyramid_cap->width, pyramid_cap->height);
+          printf("\033[33m%s\033[0m\n",pyramid_file);
+          
+					if (fd_pyramid[buf] < 0) {
+            printf("\033[33mfd_pyramid[buf] = amba_transfer_open(pyramid_file,transfer_method, port++);\033[0m\n");
+						fd_pyramid[buf] = amba_transfer_open(pyramid_file,transfer_method, port++);						
+					}
+					if (fd_pyramid[buf] < 0) {
+						printf("Cannot open file [%s].\n", pyramid_file);
+						continue;
+					}
+				} 
+
+				yuv_buffer_size = pyramid_cap->pitch * ROUND_UP(pyramid_cap->height, 16) * 2;
+        
+				if (!pyramid_manual_feed && alloc_gdma_dst_buf(yuv_buffer_size))
+        {
+					rval = -1;
+					break;
+				}
+        
+				if (verbose) {
+					gettimeofday(&curr, NULL);
+					pre = curr;
+				}
+
+				if (!pyramid_manual_feed) {
+					gdma_copy.src_offset = pyramid_cap->y_addr_offset;
+					gdma_copy.dst_offset = 0;
+					gdma_copy.src_pitch = pyramid_cap->pitch;
+					gdma_copy.dst_pitch = pyramid_cap->pitch;
+					gdma_copy.width = pyramid_cap->width;
+					gdma_copy.height = pyramid_cap->height;
+					if (decode_mode) {
+						gdma_copy.src_mmap_type = IAV_PART_PYRAMID_POOL;
+					} else {
+						gdma_copy.src_mmap_type = IAV_PART_DSP;
+					}
+					gdma_copy.dst_mmap_type = gdma_dst_buf_pid;
+					if (ioctl(fd_iav, IAV_IOC_GDMA_COPY, &gdma_copy) < 0) {
+						printf("IAV_IOC_GDMA_COPY");
+					}
+
+					gdma_copy.src_offset = pyramid_cap->uv_addr_offset;
+					gdma_copy.dst_offset = pyramid_cap->pitch * ROUND_UP(pyramid_cap->height, 16);
+					gdma_copy.src_pitch = pyramid_cap->pitch;
+					gdma_copy.dst_pitch = pyramid_cap->pitch;
+					gdma_copy.width = pyramid_cap->width;
+					gdma_copy.height = pyramid_cap->height;
+					if (decode_mode) {
+						gdma_copy.src_mmap_type = IAV_PART_PYRAMID_POOL;
+					} else {
+						gdma_copy.src_mmap_type = IAV_PART_DSP;
+					}
+					gdma_copy.dst_mmap_type = gdma_dst_buf_pid;
+					if (ioctl(fd_iav, IAV_IOC_GDMA_COPY, &gdma_copy) < 0) {
+						printf("IAV_IOC_GDMA_COPY");
+					}
+
+					if (verbose) {
+						gettimeofday(&curr, NULL);
+						printf("12. GDMA copy [%06ld us].\n", 1000000 *
+							(curr.tv_sec - pre.tv_sec) + (curr.tv_usec - pre.tv_usec));
+					}
+				}
+
+				if (save_yuv_data(fd_pyramid[buf], buf, pyramid_cap, luma, chroma) < 0) {
+					printf("Failed to save Pyramid data of buf [%d].\n", buf);
+					rval = -1;
+					break;
+				}
+
+				curr_format = yuv_format;
+				if (pyramid_cap->format == IAV_YUV_FORMAT_YUV420) {
+					switch (curr_format) {
+					case YUV420_YV12:
+						sprintf(format, "YV12");
+						break;
+					case YUV420_NV12:
+						sprintf(format, "NV12");
+						break;
+					case YUV420_IYUV:
+            printf("curr_format:  YUV420_IYUV\n");
+						sprintf(format, "IYUV");
+						break;
+					case YUV444:
+						sprintf(format, "YUV444");
+						break;
+					default:
+            printf("curr_format [%d].\n", curr_format);
+						sprintf(format, "IYUV");
+						break;
+					}
+				} else {
+					sprintf(format, "Unknown [%d]", pyramid_cap->format);
+				}
+				printf("Capture_Pyramid_buffer: Pyramid layer %d for chan %d "
+					"resolution %dx%d in %s format\n", buf, current_channel,
+					pyramid_cap->width, pyramid_cap->height, format);
+
+				if (gdma_dst_buf_pid) {
+					free_gdma_dst_buf();
+				}
+			}
+			if (rval < 0) {
+				break;
+			}
+
+			//if (pyramid_manual_feed) {
+				if (ioctl(fd_iav, IAV_IOC_RELEASE_PYRAMID_BUF, &query_desc.arg.pyramid) < 0) {
+					printf("IAV_IOC_RELEASE_PYRAMID_BUF");
+					rval = -1;
+					break;
+				}
+			//}
+
+			++i;
+
+      GetMillisecondsTime(&currTime);
+      //usleep(CPU_Sleep);
+      printf("How long: %d ms \n",currTime - preTime);
+		}
+	} while (0);
+
+	if (gdma_dst_buf_pid) {
+		free_gdma_dst_buf();
+	}
+	if (luma) {
+		free(luma);
+	}
+	if (chroma) {
+		free(chroma);
+	}
+	return rval;
+}
+
+/**
+*@ ********************************************************************
+*@ Name           : one_shot                                          *
+*@ Description    : called to initialize application                  *
+*@ Arguments      : N/A                                               *
+*@ Return Value   : N/A                                               *
+*@ Notes          :                                                   *
+*@ Change History :                                                   *
+*@ ********************************************************************
+**/
+void one_shot(void)
+{
+    debug_message("one_shot\n");
+    printf("\033[41m============================== one_shot Start ==============================\033[0m\n"); 
+
+    if((fd_iav = open("/dev/iav",O_RDWR,0)) < 0)
+    {
+    	printf("\033[33m/dev/iav\033[0m\n");
+    }
+
+    check_state();
+
+    init_param();
+
+    get_resource_info();
+
+    //map_canvas_buffers();
+    map_dsp_buffer();
+
+   	for (int i = 0; i < IAV_MAX_PYRAMID_LAYERS; ++i)
+    {
+		  fd_pyramid[i] = -1;
+  	}
+
+    capture_pyramid(pyramid_buffer_map, frame_count);
+
+  	for (int i = 0; i < IAV_MAX_PYRAMID_LAYERS; ++i)
+    {
+		  if (fd_pyramid[i] >= 0)
+      {
+			  amba_transfer_close(fd_pyramid[i], transfer_method);
+  			fd_pyramid[i] = -1;
+	  	}
+  	}
+
+  	amba_transfer_deinit(transfer_method);
+
+    printf("\033[41m============================== one_shot End ==============================\033[0m\n");
+
+    return;
+}
+
+

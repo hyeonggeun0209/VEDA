@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<manifest>
+    <appName>test_BestShot</appName>
+    <appLocation>/mnt</appLocation>
+    <appVersion>1.0</appVersion>
+    <minSDK>5.00</minSDK>
+    <targetSDK>5.00</targetSDK>
+    <maxSDK>5.00</maxSDK>
+    <debug>false</debug>
+    <vendor>Hanwha Techwin</vendor>
+    <description/>
+    <platform>
+        <model>TNO7180</model>
+        <videoEncoding>
+            <codec>H.264</codec>
+            <resolution>1920 X 1080</resolution>
+            <frameRate>30</frameRate>
+            <compression>1</compression>
+            <bitRate>8192</bitRate>
+            <audio>false</audio>
+        </videoEncoding>
+        <rawVideo>
+            <format>NV 12</format>
+            <resolution>1920 X 1080</resolution>
+            <frameRate>1</frameRate>
+        </rawVideo>
+    </platform>
+    <permissions/>
+    <vaEvents>
+        <faceDetection>false</faceDetection>
+        <motionDetection>false</motionDetection>
+        <appearDisappear>false</appearDisappear>
+        <passing>false</passing>
+        <tamperingDetection>false</tamperingDetection>
+        <alarm>false</alarm>
+        <enterExit>false</enterExit>
+        <metadata>false</metadata>
+        <rtspMetadata>true</rtspMetadata>
+    </vaEvents>
+    <appConfigData/>
+</manifest>
