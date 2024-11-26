@@ -6,9 +6,9 @@ void Shape::paint() {
     draw();
 }
 
-void Shape::draw() {
-    cout << "--Shape--";
-}
+// void Shape::draw() {
+//     cout << "--Shape--";
+// }
 
 Shape* Shape::add(Shape *p) {
     this->next = p;
