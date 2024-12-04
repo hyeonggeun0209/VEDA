@@ -285,7 +285,7 @@ int main() {
 
         // SRTP 데이터 보호
         status = srtp_protect(srtp_session, rtp_packet, &rtp_packet_len);
-        if (status != srtp_err_status_ok) {
+        if (status != srtp_err_status_ok) { 
             std::cerr << "Failed to protect SRTP data, error code: " << status << std::endl;
 
             if (status == srtp_err_status_cipher_fail) {
