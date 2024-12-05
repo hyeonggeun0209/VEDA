@@ -218,7 +218,7 @@ if (received_len < 0) {
     perror("Failed to receive SRTP data");
 } else {
     std::cout << "Received SRTP packet length: " << received_len << std::endl;
-    std::cout << "Received SRTP packet data (raw): ";
+    std::cout << "Received SRTP packet data (raw): "; 
     for (int i = 0; i < received_len; ++i) {
         printf("%02x ", recv_buffer[i]);
     }
